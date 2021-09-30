@@ -61,6 +61,7 @@ typedef struct df_files
 	ino_t		inode;			/* Inode number of file */
 #endif
 	void	   *handle;			/* a handle for pg_dl* functions */
+	bool		non_backup;		/* loaded as a non-backup library */
 	char		filename[FLEXIBLE_ARRAY_MEMBER];	/* Full pathname of file */
 } DynamicFileList;
 
@@ -76,6 +77,11 @@ static DynamicFileList *file_tail = NULL;
 
 char	   *Dynamic_library_path;
 
+PG_archive_t PG_archive = NULL;
+PG_restore_t PG_restore = NULL;
+PG_archive_cleanup_t PG_archive_cleanup = NULL;
+PG_recovery_end_t PG_recovery_end = NULL;
+
 static void *internal_load_library(const char *libname);
 static void incompatible_module_error(const char *libname,
 									  const Pg_magic_struct *module_magic_data) pg_attribute_noreturn();
@@ -85,6 +91,7 @@ static char *expand_dynamic_library_name(const char *name);
 static void check_restricted_library_name(const char *name);
 static char *substitute_libpath_macro(const char *name);
 static char *find_in_dynamic_libpath(const char *basename);
+static void init_library(const char *libname, void *handle);
 
 /* Magic structure that module needs to match to be accepted */
 static const Pg_magic_struct magic_data = PG_MODULE_MAGIC_DATA;
@@ -187,7 +194,6 @@ internal_load_library(const char *libname)
 	PGModuleMagicFunction magic_func;
 	char	   *load_error;
 	struct stat stat_buf;
-	PG_init_t	PG_init;
 
 	/*
 	 * Scan the list of loaded FILES to see if the file has been loaded.
@@ -281,12 +287,7 @@ internal_load_library(const char *libname)
 					 errhint("Extension libraries are required to use the PG_MODULE_MAGIC macro.")));
 		}
 
-		/*
-		 * If the library has a _PG_init() function, call it.
-		 */
-		PG_init = (PG_init_t) dlsym(file_scanner->handle, "_PG_init");
-		if (PG_init)
-			(*PG_init) ();
+		init_library(libname, file_scanner->handle);
 
 		/* OK to link it into list */
 		if (file_list == NULL)
@@ -295,8 +296,93 @@ internal_load_library(const char *libname)
 			file_tail->next = file_scanner;
 		file_tail = file_scanner;
 	}
+	else if (!file_scanner->non_backup || process_backup_libraries_in_progress)
+	{
+		/*
+		 * If we are loading a backup library, we initialize the library
+		 * even if we previously loaded it.  This allows users to use
+		 * backup libraries for multiple reasons (e.g., the same library
+		 * can be specified in shared_preload_libraries, archive_library,
+		 * and restore_library).  Similarly, if we are loading a previously
+		 * loaded backup library as a "non-backup" library (e.g.,
+		 * session_preload_libraries), we want to initialize it again then,
+		 * too.
+		 */
+		init_library(libname, file_scanner->handle);
+	}
+
+	/*
+	 * Record whether this library is being loaded as a "non-backup"
+	 * library (e.g., session_preload_libraries).  If the same library is
+	 * used as a backup library, we want to call its _PG_init()
+	 * function (if one exists) again when initializing the backup
+	 * tooling.  Similarly, if a backup library is loaded as a
+	 * "non-backup" library, we want to call it's _PG_init() again when
+	 * reinitializing it.
+	 */
+	file_scanner->non_backup |= !process_backup_libraries_in_progress;
 
 	return file_scanner->handle;
+}
+
+/*
+ * init_library
+ *
+ * This function calls the library's _PG_init() function if it exists.  If
+ * we are loading a backup library, we look up the relevant functions and
+ * save them for later.
+ */
+static void
+init_library(const char *libname, void *handle)
+{
+	PG_init_t PG_init;
+
+	/*
+	 * If the library has a _PG_init() function, call it.
+	 */
+	PG_init = (PG_init_t) dlsym(handle, "_PG_init");
+	if (PG_init)
+		(*PG_init) ();
+
+	if (process_archive_library_in_progress)
+	{
+		PG_archive = (PG_archive_t) dlsym(handle, "_PG_archive");
+		if (PG_archive == NULL)
+			ereport(ERROR,
+					(errmsg("incompatible archive library \"%s\": missing "
+							"function \"_PG_archive()\"",
+							libname)));
+	}
+
+	if (process_restore_library_in_progress)
+	{
+		PG_restore = (PG_restore_t) dlsym(handle, "_PG_restore");
+		if (PG_restore == NULL)
+			ereport(ERROR,
+					(errmsg("incompatible restore library \"%s\": missing "
+							"function \"_PG_restore()\"",
+							libname)));
+	}
+
+	if (process_archive_cleanup_library_in_progress)
+	{
+		PG_archive_cleanup = (PG_archive_cleanup_t) dlsym(handle, "_PG_archive_cleanup");
+		if (PG_archive_cleanup == NULL)
+			ereport(ERROR,
+					(errmsg("incompatible archive cleanup library \"%s\": "
+							"missing function \"_PG_archive_cleanup()\"",
+							libname)));
+	}
+
+	if (process_recovery_end_library_in_progress)
+	{
+		PG_recovery_end = (PG_recovery_end_t) dlsym(handle, "_PG_recovery_end");
+		if (PG_recovery_end == NULL)
+			ereport(ERROR,
+					(errmsg("incompatible recovery end library \"%s\": "
+							"missing function \"_PG_recovery_end()\"",
+							libname)));
+	}
 }
 
 /*

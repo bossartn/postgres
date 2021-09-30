@@ -1026,6 +1026,11 @@ PostmasterMain(int argc, char *argv[])
 	process_shared_preload_libraries();
 
 	/*
+	 * Process any backup libraries.
+	 */
+	process_backup_libraries();
+
+	/*
 	 * Initialize SSL library, if specified.
 	 */
 #ifdef USE_SSL
@@ -5011,6 +5016,11 @@ SubPostmasterMain(int argc, char *argv[])
 	 * non-EXEC_BACKEND behavior.
 	 */
 	process_shared_preload_libraries();
+
+	/*
+	 * Process any backup libraries.
+	 */
+	process_backup_libraries();
 
 	/* Run backend or appropriate child */
 	if (strcmp(argv[1], "--forkbackend") == 0)

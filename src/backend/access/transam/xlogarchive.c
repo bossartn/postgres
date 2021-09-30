@@ -23,6 +23,7 @@
 #include "access/xlog_internal.h"
 #include "access/xlogarchive.h"
 #include "common/archive.h"
+#include "fmgr.h"
 #include "miscadmin.h"
 #include "postmaster/startup.h"
 #include "postmaster/pgarch.h"
@@ -30,6 +31,16 @@
 #include "storage/fd.h"
 #include "storage/ipc.h"
 #include "storage/lwlock.h"
+
+static bool execute_restore_library(const char *xlogpath, const char *xlogfname,
+									const char *lastRestartPointFname, char *path,
+									off_t expectedSize);
+static bool execute_restore_command(const char *xlogpath, const char *xlogfname,
+									const char *lastRestartPointFname, char *path,
+									off_t expectedSize);
+static void check_restored_file(const char *xlogpath, const char *xlogfname,
+								off_t expectedSize, bool *success,
+								bool *stat_failed);
 
 /*
  * Attempt to retrieve the specified file from off-line archival storage.
@@ -55,9 +66,7 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 					bool cleanupEnabled)
 {
 	char		xlogpath[MAXPGPATH];
-	char	   *xlogRestoreCmd;
 	char		lastRestartPointFname[MAXPGPATH];
-	int			rc;
 	struct stat stat_buf;
 	XLogSegNo	restartSegNo;
 	XLogRecPtr	restartRedoPtr;
@@ -65,14 +74,23 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 
 	/*
 	 * Ignore restore_command when not in archive recovery (meaning we are in
-	 * crash recovery).
+	 * crash recovery).  In standby mode, restore_command and restore_library
+	 * might not be supplied.
 	 */
-	if (!ArchiveRecoveryRequested)
-		goto not_available;
-
-	/* In standby mode, restore_command might not be supplied */
-	if (recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0)
-		goto not_available;
+	if (!ArchiveRecoveryRequested ||
+		((recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0) &&
+		 (recoveryRestoreLibrary == NULL || strcmp(recoveryRestoreLibrary, "") == 0)))
+	{
+		/*
+		 * if an archived file is not available, there might still be a version
+		 * of this file in XLOGDIR, so return that as the filename to open.
+		 *
+		 * In many recovery scenarios we expect this to fail also, but if so
+		 * that just means we've reached the end of WAL.
+		 */
+		snprintf(path, MAXPGPATH, XLOGDIR "/%s", xlogfname);
+		return false;
+	}
 
 	/*
 	 * When doing archive recovery, we always prefer an archived log file even
@@ -148,6 +166,95 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 	else
 		XLogFileName(lastRestartPointFname, 0, 0L, wal_segment_size);
 
+	if (PG_restore != NULL)
+		return execute_restore_library(xlogpath, xlogfname,
+									   lastRestartPointFname, path,
+									   expectedSize);
+	else
+		return execute_restore_command(xlogpath, xlogfname,
+									   lastRestartPointFname, path,
+									   expectedSize);
+}
+
+static bool
+execute_restore_library(const char *xlogpath, const char *xlogfname,
+						const char *lastRestartPointFname, char *path,
+						off_t expectedSize)
+{
+	bool ret;
+
+	Assert(PG_restore != NULL);
+	Assert(xlogpath != NULL);
+	Assert(xlogfname != NULL);
+	Assert(lastRestartPointFname != NULL);
+	Assert(path != NULL);
+
+	ereport(DEBUG3,
+			(errmsg_internal("executing restore library \"%s\" for file \"%s\"",
+							 recoveryRestoreLibrary, xlogfname)));
+
+	/*
+	 * Check signals before restore command and reset afterwards.
+	 */
+	PreRestoreCommand();
+
+	/*
+	 * Copy xlog from archival storage to XLOGDIR
+	 *
+	 * Note that we do not catch any ERRORs (or worse) that the restore
+	 * library emits.  It is the responsibility of the library to do the
+	 * necessary error handling, memory management, etc.  If a library does
+	 * ERROR (or worse), it will bubble up and may cause unexpected
+	 * behavior.
+	 */
+	ret = (*PG_restore) (xlogpath, xlogfname, lastRestartPointFname);
+
+	PostRestoreCommand();
+
+	if (ret)
+	{
+		bool success;
+		bool stat_failed;
+
+		/*
+		 * command apparently succeeded, but let's make sure the file is
+		 * really there now and has the correct size.
+		 */
+		check_restored_file(xlogpath, xlogfname, expectedSize, &success,
+							&stat_failed);
+
+		if (success)
+			strcpy(path, xlogpath);
+
+		if (!stat_failed)
+			return success;
+	}
+
+	/*
+	 * if an archived file is not available, there might still be a version of
+	 * this file in XLOGDIR, so return that as the filename to open.
+	 *
+	 * In many recovery scenarios we expect this to fail also, but if so that
+	 * just means we've reached the end of WAL.
+	 */
+	snprintf(path, MAXPGPATH, XLOGDIR "/%s", xlogfname);
+	return false;
+}
+
+static bool
+execute_restore_command(const char *xlogpath, const char *xlogfname,
+						const char *lastRestartPointFname, char *path,
+						off_t expectedSize)
+{
+	char	   *xlogRestoreCmd;
+	int			rc;
+
+	Assert(recoveryRestoreCommand != NULL);
+	Assert(xlogpath != NULL);
+	Assert(xlogfname != NULL);
+	Assert(lastRestartPointFname != NULL);
+	Assert(path != NULL);
+
 	/* Build the restore command to execute */
 	xlogRestoreCmd = BuildRestoreCommand(recoveryRestoreCommand,
 										 xlogpath, xlogfname,
@@ -175,58 +282,21 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 
 	if (rc == 0)
 	{
+		bool success;
+		bool stat_failed;
+
 		/*
 		 * command apparently succeeded, but let's make sure the file is
 		 * really there now and has the correct size.
 		 */
-		if (stat(xlogpath, &stat_buf) == 0)
-		{
-			if (expectedSize > 0 && stat_buf.st_size != expectedSize)
-			{
-				int			elevel;
+		check_restored_file(xlogpath, xlogfname, expectedSize, &success,
+							&stat_failed);
 
-				/*
-				 * If we find a partial file in standby mode, we assume it's
-				 * because it's just being copied to the archive, and keep
-				 * trying.
-				 *
-				 * Otherwise treat a wrong-sized file as FATAL to ensure the
-				 * DBA would notice it, but is that too strong? We could try
-				 * to plow ahead with a local copy of the file ... but the
-				 * problem is that there probably isn't one, and we'd
-				 * incorrectly conclude we've reached the end of WAL and we're
-				 * done recovering ...
-				 */
-				if (StandbyMode && stat_buf.st_size < expectedSize)
-					elevel = DEBUG1;
-				else
-					elevel = FATAL;
-				ereport(elevel,
-						(errmsg("archive file \"%s\" has wrong size: %lld instead of %lld",
-								xlogfname,
-								(long long int) stat_buf.st_size,
-								(long long int) expectedSize)));
-				return false;
-			}
-			else
-			{
-				ereport(LOG,
-						(errmsg("restored log file \"%s\" from archive",
-								xlogfname)));
-				strcpy(path, xlogpath);
-				return true;
-			}
-		}
-		else
-		{
-			/* stat failed */
-			int			elevel = (errno == ENOENT) ? LOG : FATAL;
+		if (success)
+			strcpy(path, xlogpath);
 
-			ereport(elevel,
-					(errcode_for_file_access(),
-					 errmsg("could not stat file \"%s\": %m", xlogpath),
-					 errdetail("restore_command returned a zero exit status, but stat() failed.")));
-		}
+		if (!stat_failed)
+			return success;
 	}
 
 	/*
@@ -260,8 +330,6 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 			(errmsg("could not restore file \"%s\" from archive: %s",
 					xlogfname, wait_result_to_str(rc))));
 
-not_available:
-
 	/*
 	 * if an archived file is not available, there might still be a version of
 	 * this file in XLOGDIR, so return that as the filename to open.
@@ -271,6 +339,79 @@ not_available:
 	 */
 	snprintf(path, MAXPGPATH, XLOGDIR "/%s", xlogfname);
 	return false;
+}
+
+/*
+ * check_restored_file
+ *
+ * Check that the file specified by xlogpath and xlogfname exists and has
+ * the expected size.  If everything checks out, *success is set to true
+ * and *stat_failed is set to false.  If the call to stat() fails, *success
+ * is set to false and *stat_failed is set to true.  Otherwise, both
+ * *success and *stat_failed are set to false.
+ */
+static void
+check_restored_file(const char *xlogpath, const char *xlogfname,
+					off_t expectedSize, bool *success, bool *stat_failed)
+{
+	struct stat stat_buf;
+
+	Assert(xlogpath != NULL);
+	Assert(xlogfname != NULL);
+	Assert(success != NULL);
+	Assert(stat_failed != NULL);
+
+	*success = false;
+	*stat_failed = false;
+
+	if (stat(xlogpath, &stat_buf) == 0)
+	{
+		if (expectedSize > 0 && stat_buf.st_size != expectedSize)
+		{
+			int			elevel;
+
+			/*
+			 * If we find a partial file in standby mode, we assume it's
+			 * because it's just being copied to the archive, and keep
+			 * trying.
+			 *
+			 * Otherwise treat a wrong-sized file as FATAL to ensure the
+			 * DBA would notice it, but is that too strong? We could try
+			 * to plow ahead with a local copy of the file ... but the
+			 * problem is that there probably isn't one, and we'd
+			 * incorrectly conclude we've reached the end of WAL and we're
+			 * done recovering ...
+			 */
+			if (StandbyMode && stat_buf.st_size < expectedSize)
+				elevel = DEBUG1;
+			else
+				elevel = FATAL;
+			ereport(elevel,
+					(errmsg("archive file \"%s\" has wrong size: %lld instead of %lld",
+							xlogfname,
+							(long long int) stat_buf.st_size,
+							(long long int) expectedSize)));
+		}
+		else
+		{
+			ereport(LOG,
+					(errmsg("restored log file \"%s\" from archive",
+							xlogfname)));
+			*success = true;
+		}
+	}
+	else
+	{
+		/* stat failed */
+		int			elevel = (errno == ENOENT) ? LOG : FATAL;
+
+		ereport(elevel,
+				(errcode_for_file_access(),
+				 errmsg("could not stat file \"%s\": %m", xlogpath),
+				 errdetail("restore_command returned a zero exit status, but stat() failed.")));
+
+		*stat_failed = true;
+	}
 }
 
 /*
@@ -371,6 +512,67 @@ ExecuteRecoveryCommand(const char *command, const char *commandName, bool failOn
 	}
 }
 
+/*
+ * Attempt to execute an external library during recovery.
+ *
+ * 'libraryType' is the library to be executed.
+ *
+ * This is currently used for recovery_end_library and
+ * archive_cleanup_library.
+ */
+void
+ExecuteRecoveryLibrary(const char *libraryType)
+{
+	char		lastRestartPointFname[MAXPGPATH];
+	XLogSegNo	restartSegNo;
+	XLogRecPtr	restartRedoPtr;
+	TimeLineID	restartTli;
+	bool		ret;
+	char	   *libraryName;
+
+	Assert(libraryType);
+
+	/*
+	 * Calculate the archive file cutoff point for use during log shipping
+	 * replication. All files earlier than this point can be deleted from the
+	 * archive, though there is no requirement to do so.
+	 */
+	GetOldestRestartPoint(&restartRedoPtr, &restartTli);
+	XLByteToSeg(restartRedoPtr, restartSegNo, wal_segment_size);
+	XLogFileName(lastRestartPointFname, restartTli, restartSegNo,
+				 wal_segment_size);
+
+	if (strcmp(libraryType, "archive_cleanup_library") == 0)
+		libraryName = archiveCleanupLibrary;
+	else if (strcmp(libraryType, "recovery_end_library") == 0)
+		libraryName = recoveryEndLibrary;
+	else
+		elog(ERROR, "unknown library type");
+
+	ereport(DEBUG3,
+			(errmsg_internal("executing %s library \"%s\" for file \"%s\"",
+							 libraryType, libraryName, lastRestartPointFname)));
+
+	/*
+	 * Call the library.
+	 *
+	 * Note that we do not catch any ERRORs (or worse) that the library
+	 * emits.  It is the responsibility of the library to do the necessary
+	 * error handling, memory management, etc.  If a library does ERROR (or
+	 * worse), it will bubble up and may cause unexpected behavior.
+	 */
+	if (strcmp(libraryType, "archive_cleanup_library") == 0)
+		ret = (*PG_archive_cleanup) (lastRestartPointFname);
+	else if (strcmp(libraryType, "recovery_end_library") == 0)
+		ret = (*PG_recovery_end) (lastRestartPointFname);
+	else
+		elog(ERROR, "unknown library type");
+
+	if (!ret)
+		ereport(WARNING,
+				(errmsg("executing %s library \"%s\" for file \"%s\" failed",
+						libraryType, libraryName, lastRestartPointFname)));
+}
 
 /*
  * A file was restored from the archive under a temporary filename (path),

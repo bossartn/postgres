@@ -22,6 +22,7 @@ extern bool RestoreArchivedFile(char *path, const char *xlogfname,
 								bool cleanupEnabled);
 extern void ExecuteRecoveryCommand(const char *command, const char *commandName,
 								   bool failOnSignal);
+extern void ExecuteRecoveryLibrary(const char *libraryType);
 extern void KeepFileRestoredFromArchive(const char *path, const char *xlogfname);
 extern void XLogArchiveNotify(const char *xlog);
 extern void XLogArchiveNotifySeg(XLogSegNo segno);

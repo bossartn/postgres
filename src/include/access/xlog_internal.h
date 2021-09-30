@@ -332,5 +332,6 @@ extern bool ArchiveRecoveryRequested;
 extern bool InArchiveRecovery;
 extern bool StandbyMode;
 extern char *recoveryRestoreCommand;
+extern char *recoveryRestoreLibrary;
 
 #endif							/* XLOG_INTERNAL_H */

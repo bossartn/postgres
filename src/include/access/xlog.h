@@ -71,6 +71,7 @@ extern int	XLOGbuffers;
 extern int	XLogArchiveTimeout;
 extern int	wal_retrieve_retry_interval;
 extern char *XLogArchiveCommand;
+extern char *XLogArchiveLibrary;
 extern bool EnableHotStandby;
 extern bool fullPageWrites;
 extern bool wal_log_hints;
@@ -81,8 +82,11 @@ extern bool *wal_consistency_checking;
 extern char *wal_consistency_checking_string;
 extern bool log_checkpoints;
 extern char *recoveryRestoreCommand;
+extern char *recoveryRestoreLibrary;
 extern char *recoveryEndCommand;
+extern char *recoveryEndLibrary;
 extern char *archiveCleanupCommand;
+extern char *archiveCleanupLibrary;
 extern bool recoveryTargetInclusive;
 extern int	recoveryTargetAction;
 extern int	recovery_min_apply_delay;
@@ -157,7 +161,7 @@ extern PGDLLIMPORT int wal_level;
 /* Is WAL archiving enabled always (even during recovery)? */
 #define XLogArchivingAlways() \
 	(AssertMacro(XLogArchiveMode == ARCHIVE_MODE_OFF || wal_level >= WAL_LEVEL_REPLICA), XLogArchiveMode == ARCHIVE_MODE_ALWAYS)
-#define XLogArchiveCommandSet() (XLogArchiveCommand[0] != '\0')
+#define XLogArchiveCommandOrLibrarySet() (XLogArchiveCommand[0] != '\0' || XLogArchiveLibrary[0] != '\0')
 
 /*
  * Is WAL-logging necessary for archival or log-shipping, or can we skip

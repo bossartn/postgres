@@ -95,6 +95,7 @@ int			XLOGbuffers = -1;
 int			XLogArchiveTimeout = 0;
 int			XLogArchiveMode = ARCHIVE_MODE_OFF;
 char	   *XLogArchiveCommand = NULL;
+char	   *XLogArchiveLibrary = NULL;
 bool		EnableHotStandby = false;
 bool		fullPageWrites = true;
 bool		wal_log_hints = false;
@@ -270,8 +271,11 @@ static char *primary_image_masked = NULL;
 
 /* options formerly taken from recovery.conf for archive recovery */
 char	   *recoveryRestoreCommand = NULL;
+char	   *recoveryRestoreLibrary = NULL;
 char	   *recoveryEndCommand = NULL;
+char	   *recoveryEndLibrary = NULL;
 char	   *archiveCleanupCommand = NULL;
+char	   *archiveCleanupLibrary = NULL;
 RecoveryTargetType recoveryTarget = RECOVERY_TARGET_UNSET;
 bool		recoveryTargetInclusive = true;
 int			recoveryTargetAction = RECOVERY_TARGET_ACTION_PAUSE;
@@ -5558,18 +5562,21 @@ validateRecoveryParameters(void)
 	if (StandbyModeRequested)
 	{
 		if ((PrimaryConnInfo == NULL || strcmp(PrimaryConnInfo, "") == 0) &&
-			(recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0))
+			(recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0) &&
+			(recoveryRestoreLibrary == NULL || strcmp(recoveryRestoreLibrary, "") == 0))
 			ereport(WARNING,
-					(errmsg("specified neither primary_conninfo nor restore_command"),
+					(errmsg("specified neither primary_conninfo nor restore_command nor restore_library"),
 					 errhint("The database server will regularly poll the pg_wal subdirectory to check for files placed there.")));
 	}
 	else
 	{
-		if (recoveryRestoreCommand == NULL ||
-			strcmp(recoveryRestoreCommand, "") == 0)
+		if ((recoveryRestoreCommand == NULL ||
+			 strcmp(recoveryRestoreCommand, "") == 0) &&
+			(recoveryRestoreLibrary == NULL ||
+			 strcmp(recoveryRestoreLibrary, "") == 0))
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("must specify restore_command when standby mode is not enabled")));
+					 errmsg("must specify restore_command or restore_library when standby mode is not enabled")));
 	}
 
 	/*
@@ -7997,12 +8004,15 @@ StartupXLOG(void)
 	if (ArchiveRecoveryRequested)
 	{
 		/*
-		 * And finally, execute the recovery_end_command, if any.
+		 * And finally, execute the recovery_end_command or
+		 * recovery_end_library, if any.
 		 */
 		if (recoveryEndCommand && strcmp(recoveryEndCommand, "") != 0)
 			ExecuteRecoveryCommand(recoveryEndCommand,
 								   "recovery_end_command",
 								   true);
+		else if (recoveryEndLibrary && strcmp(recoveryEndLibrary, "") != 0)
+			ExecuteRecoveryLibrary("recovery_end_library");
 
 		/*
 		 * We switched to a new timeline. Clean up segments on the old
@@ -8739,7 +8749,7 @@ ShutdownXLOG(int code, Datum arg)
 		 * process one more time at the end of shutdown). The checkpoint
 		 * record will go to the next XLOG file and won't be archived (yet).
 		 */
-		if (XLogArchivingActive() && XLogArchiveCommandSet())
+		if (XLogArchivingActive() && XLogArchiveCommandOrLibrarySet())
 			RequestXLogSwitch(false);
 
 		CreateCheckPoint(CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_IMMEDIATE);
@@ -9805,12 +9815,15 @@ CreateRestartPoint(int flags)
 							   timestamptz_to_str(xtime)) : 0));
 
 	/*
-	 * Finally, execute archive_cleanup_command, if any.
+	 * Finally, execute archive_cleanup_command or archive_cleanup_library,
+	 * if any.
 	 */
 	if (archiveCleanupCommand && strcmp(archiveCleanupCommand, "") != 0)
 		ExecuteRecoveryCommand(archiveCleanupCommand,
 							   "archive_cleanup_command",
 							   false);
+	else if (archiveCleanupLibrary && strcmp(archiveCleanupLibrary, "") != 0)
+		ExecuteRecoveryLibrary("archive_cleanup_library");
 
 	return true;
 }

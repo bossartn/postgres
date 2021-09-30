@@ -29,6 +29,7 @@
 #include <utime.h>
 
 #include "access/htup_details.h"
+#include "access/xlog.h"
 #include "catalog/pg_authid.h"
 #include "common/file_perm.h"
 #include "libpq/libpq.h"
@@ -1615,6 +1616,16 @@ char	   *local_preload_libraries_string = NULL;
 bool		process_shared_preload_libraries_in_progress = false;
 
 /*
+ * Flags telling that we are loading archive_library, restore_library,
+ * archive_cleanup_library, and recovery_end_library.
+ */
+bool		process_backup_libraries_in_progress = false;
+bool		process_archive_library_in_progress = false;
+bool		process_restore_library_in_progress = false;
+bool		process_archive_cleanup_library_in_progress = false;
+bool		process_recovery_end_library_in_progress = false;
+
+/*
  * load the shared libraries listed in 'libraries'
  *
  * 'gucname': name of GUC variable, for error reports
@@ -1694,6 +1705,57 @@ process_session_preload_libraries(void)
 	load_libraries(local_preload_libraries_string,
 				   "local_preload_libraries",
 				   true);
+}
+
+/*
+ * process backup libraries
+ */
+void
+process_backup_libraries(void)
+{
+	process_backup_libraries_in_progress = true;
+
+	if (XLogArchiveLibrary && XLogArchiveLibrary[0] != '\0')
+	{
+		process_archive_library_in_progress = true;
+		load_file(XLogArchiveLibrary, false);
+		ereport(DEBUG1,
+				(errmsg_internal("loaded archive library \"%s\"",
+								 XLogArchiveLibrary)));
+		process_archive_library_in_progress = false;
+	}
+
+	if (recoveryRestoreLibrary && recoveryRestoreLibrary[0] != '\0')
+	{
+		process_restore_library_in_progress = true;
+		load_file(recoveryRestoreLibrary, false);
+		ereport(DEBUG1,
+				(errmsg_internal("loaded restore library \"%s\"",
+								 recoveryRestoreLibrary)));
+		process_restore_library_in_progress = false;
+	}
+
+	if (archiveCleanupLibrary && archiveCleanupLibrary[0] != '\0')
+	{
+		process_archive_cleanup_library_in_progress = true;
+		load_file(archiveCleanupLibrary, false);
+		ereport(DEBUG1,
+				(errmsg_internal("loaded archive cleanup library \"%s\"",
+								 archiveCleanupLibrary)));
+		process_archive_cleanup_library_in_progress = false;
+	}
+
+	if (recoveryEndLibrary && recoveryEndLibrary[0] != '\0')
+	{
+		process_recovery_end_library_in_progress = true;
+		load_file(recoveryEndLibrary, false);
+		ereport(DEBUG1,
+				(errmsg_internal("loaded recovery end library \"%s\"",
+								 recoveryEndLibrary)));
+		process_recovery_end_library_in_progress = false;
+	}
+
+	process_backup_libraries_in_progress = false;
 }
 
 void

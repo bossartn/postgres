@@ -103,6 +103,8 @@ static bool pgarch_readyXlog(char *xlog);
 static void pgarch_archiveDone(char *xlog);
 static void pgarch_die(int code, Datum arg);
 static void HandlePgArchInterrupts(void);
+static bool execute_archive_library(const char *pathname, const char *xlog);
+static bool execute_archive_command(const char *pathname, const char *xlog);
 
 /* Report shared memory space needed by PgArchShmemInit */
 Size
@@ -358,11 +360,12 @@ pgarch_ArchiverCopyLoop(void)
 			 */
 			HandlePgArchInterrupts();
 
-			/* can't do anything if no command ... */
-			if (!XLogArchiveCommandSet())
+			/* can't do anything if no command or library... */
+			if (!XLogArchiveCommandOrLibrarySet())
 			{
 				ereport(WARNING,
-						(errmsg("archive_mode enabled, yet archive_command is not set")));
+						(errmsg("archive_mode enabled, yet archive_command "
+								"and archive_library are not set")));
 				return;
 			}
 
@@ -443,22 +446,102 @@ pgarch_ArchiverCopyLoop(void)
 /*
  * pgarch_archiveXlog
  *
- * Invokes system(3) to copy one archive file to wherever it should go
+ * Invokes system(3) or PG_archive() to copy one archive file to wherever
+ * it should go.
  *
  * Returns true if successful
  */
 static bool
 pgarch_archiveXlog(char *xlog)
 {
-	char		xlogarchcmd[MAXPGPATH];
 	char		pathname[MAXPGPATH];
+
+	snprintf(pathname, MAXPGPATH, XLOGDIR "/%s", xlog);
+
+	if (PG_archive != NULL)
+		return execute_archive_library(pathname, xlog);
+	else
+		return execute_archive_command(pathname, xlog);
+}
+
+/*
+ * execute_archive_library
+ *
+ * Invokes PG_archive() to copy one archive file to wherever it should go.
+ *
+ * Returns true if successful
+ */
+static bool
+execute_archive_library(const char *pathname, const char *xlog)
+{
+	char		activitymsg[MAXFNAMELEN + 16];
+	bool		ret;
+
+	Assert(PG_archive != NULL);
+	Assert(pathname != NULL);
+	Assert(xlog != NULL);
+
+	/*
+	 * Report that we are archiving a file.
+	 */
+	ereport(DEBUG3,
+			(errmsg_internal("executing archive library \"%s\" for file \"%s\"",
+							 XLogArchiveLibrary, xlog)));
+	snprintf(activitymsg, sizeof(activitymsg), "archiving %s", xlog);
+	set_ps_display(activitymsg);
+
+	/*
+	 * Call the archive library.
+	 *
+	 * Note that we do not catch any ERRORs (or worse) that the archive
+	 * library emits.  It is the responsibility of the library to do the
+	 * necessary error handling, memory management, etc.  If a library does
+	 * ERROR (or worse), it will bubble up and cause the archiver to
+	 * restart.
+	 */
+	ret = (*PG_archive) (pathname, xlog);
+
+	/*
+	 * Report the success or failure of the archival attempt.
+	 */
+	if (ret)
+	{
+		ereport(DEBUG1,
+				(errmsg("archived write-ahead log file \"%s\"", xlog)));
+		snprintf(activitymsg, sizeof(activitymsg), "last was %s", xlog);
+	}
+	else
+	{
+		ereport(LOG,
+				(errmsg("archive library \"%s\" failed for file \"%s\"",
+						XLogArchiveLibrary, xlog)));
+		snprintf(activitymsg, sizeof(activitymsg), "failed on %s", xlog);
+	}
+
+	set_ps_display(activitymsg);
+	return ret;
+}
+
+/*
+ * execute_archive_command
+ *
+ * Invokes system(3) to copy one archive file to wherever it should go.
+ *
+ * Returns true if successful
+ */
+static bool
+execute_archive_command(const char *pathname, const char *xlog)
+{
+	char		xlogarchcmd[MAXPGPATH];
 	char		activitymsg[MAXFNAMELEN + 16];
 	char	   *dp;
 	char	   *endp;
 	const char *sp;
 	int			rc;
 
-	snprintf(pathname, MAXPGPATH, XLOGDIR "/%s", xlog);
+	Assert(XLogArchiveCommand != NULL && XLogArchiveCommand[0] != '\0');
+	Assert(pathname != NULL);
+	Assert(xlog != NULL);
 
 	/*
 	 * construct the command to be executed

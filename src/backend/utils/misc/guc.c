@@ -234,6 +234,14 @@ static bool check_recovery_target_lsn(char **newval, void **extra, GucSource sou
 static void assign_recovery_target_lsn(const char *newval, void *extra);
 static bool check_primary_slot_name(char **newval, void **extra, GucSource source);
 static bool check_default_with_oids(bool *newval, void **extra, GucSource source);
+static bool check_archive_command(char **newval, void **extra, GucSource source);
+static bool check_archive_library(char **newval, void **extra, GucSource source);
+static bool check_restore_command(char **newval, void **extra, GucSource source);
+static bool check_restore_library(char **newval, void **extra, GucSource source);
+static bool check_archive_cleanup_command(char **newval, void **extra, GucSource source);
+static bool check_archive_cleanup_library(char **newval, void **extra, GucSource source);
+static bool check_recovery_end_command(char **newval, void **extra, GucSource source);
+static bool check_recovery_end_library(char **newval, void **extra, GucSource source);
 
 /* Private functions in guc-file.l that need to be called from guc.c */
 static ConfigVariable *ProcessConfigFileInternal(GucContext context,
@@ -3855,7 +3863,17 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&XLogArchiveCommand,
 		"",
-		NULL, NULL, show_archive_command
+		check_archive_command, NULL, show_archive_command
+	},
+
+	{
+		{"archive_library", PGC_POSTMASTER, WAL_ARCHIVING,
+			gettext_noop("Sets the library that will be called to archive a WAL file."),
+			NULL
+		},
+		&XLogArchiveLibrary,
+		"",
+		check_archive_library, NULL, NULL
 	},
 
 	{
@@ -3865,7 +3883,17 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&recoveryRestoreCommand,
 		"",
-		NULL, NULL, NULL
+		check_restore_command, NULL, NULL
+	},
+
+	{
+		{"restore_library", PGC_POSTMASTER, WAL_ARCHIVE_RECOVERY,
+			gettext_noop("Sets the library that will be called to retrieve an archived WAL file."),
+			NULL
+		},
+		&recoveryRestoreLibrary,
+		"",
+		check_restore_library, NULL, NULL
 	},
 
 	{
@@ -3875,7 +3903,17 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&archiveCleanupCommand,
 		"",
-		NULL, NULL, NULL
+		check_archive_cleanup_command, NULL, NULL
+	},
+
+	{
+		{"archive_cleanup_library", PGC_POSTMASTER, WAL_ARCHIVE_RECOVERY,
+			gettext_noop("Sets the library that will be executed at every restart point."),
+			NULL
+		},
+		&archiveCleanupLibrary,
+		"",
+		check_archive_cleanup_library, NULL, NULL
 	},
 
 	{
@@ -3885,7 +3923,17 @@ static struct config_string ConfigureNamesString[] =
 		},
 		&recoveryEndCommand,
 		"",
-		NULL, NULL, NULL
+		check_recovery_end_command, NULL, NULL
+	},
+
+	{
+		{"recovery_end_library", PGC_POSTMASTER, WAL_ARCHIVE_RECOVERY,
+			gettext_noop("Sets the library that will be executed once at the end of recovery."),
+			NULL
+		},
+		&recoveryEndLibrary,
+		"",
+		check_recovery_end_library, NULL, NULL
 	},
 
 	{
@@ -8948,7 +8996,8 @@ init_custom_variable(const char *name,
 	 * module might already have hooked into.
 	 */
 	if (context == PGC_POSTMASTER &&
-		!process_shared_preload_libraries_in_progress)
+		!process_shared_preload_libraries_in_progress &&
+		!process_backup_libraries_in_progress)
 		elog(FATAL, "cannot create PGC_POSTMASTER variables after startup");
 
 	/*
@@ -12556,6 +12605,102 @@ check_default_with_oids(bool *newval, void **extra, GucSource source)
 		return false;
 	}
 
+	return true;
+}
+
+static bool
+check_archive_command(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		XLogArchiveLibrary && XLogArchiveLibrary[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"archive_library\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_archive_library(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		XLogArchiveCommand && XLogArchiveCommand[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"archive_command\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_restore_command(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		recoveryRestoreLibrary && recoveryRestoreLibrary[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"restore_library\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_restore_library(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		recoveryRestoreCommand && recoveryRestoreCommand[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"restore_command\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_archive_cleanup_command(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		archiveCleanupLibrary && archiveCleanupLibrary[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"archive_cleanup_library\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_archive_cleanup_library(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		archiveCleanupCommand && archiveCleanupCommand[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"archive_cleanup_command\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_recovery_end_command(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		recoveryEndLibrary && recoveryEndLibrary[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"recovery_end_library\" is set.");
+		return false;
+	}
+	return true;
+}
+
+static bool
+check_recovery_end_library(char **newval, void **extra, GucSource source)
+{
+	if (*newval && *newval[0] != '\0' &&
+		recoveryEndCommand && recoveryEndCommand[0] != '\0')
+	{
+		GUC_check_errdetail("Cannot set parameter when \"recovery_end_command\" is set.");
+		return false;
+	}
 	return true;
 }
 

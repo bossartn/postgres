@@ -718,6 +718,16 @@ extern bool CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid);
  */
 extern char *Dynamic_library_path;
 
+typedef bool (*PG_archive_t) (const char *path, const char *file);
+extern PG_archive_t PG_archive;
+typedef bool (*PG_restore_t) (const char *path, const char *file,
+							  const char *last_restartpoint_file);
+extern PG_restore_t PG_restore;
+typedef bool (*PG_archive_cleanup_t) (const char *last_restartpoint_file);
+extern PG_archive_cleanup_t PG_archive_cleanup;
+typedef bool (*PG_recovery_end_t) (const char *last_restartpoint_file);
+extern PG_recovery_end_t PG_recovery_end;
+
 extern void *load_external_function(const char *filename, const char *funcname,
 									bool signalNotFound, void **filehandle);
 extern void *lookup_external_function(void *filehandle, const char *funcname);

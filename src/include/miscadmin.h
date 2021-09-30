@@ -464,6 +464,11 @@ extern void BaseInit(void);
 /* in utils/init/miscinit.c */
 extern bool IgnoreSystemIndexes;
 extern PGDLLIMPORT bool process_shared_preload_libraries_in_progress;
+extern PGDLLIMPORT bool process_backup_libraries_in_progress;
+extern PGDLLIMPORT bool process_archive_library_in_progress;
+extern PGDLLIMPORT bool process_restore_library_in_progress;
+extern PGDLLIMPORT bool process_archive_cleanup_library_in_progress;
+extern PGDLLIMPORT bool process_recovery_end_library_in_progress;
 extern char *session_preload_libraries_string;
 extern char *shared_preload_libraries_string;
 extern char *local_preload_libraries_string;
@@ -477,6 +482,7 @@ extern bool RecheckDataDirLockFile(void);
 extern void ValidatePgVersion(const char *path);
 extern void process_shared_preload_libraries(void);
 extern void process_session_preload_libraries(void);
+extern void process_backup_libraries(void);
 extern void pg_bindtextdomain(const char *domain);
 extern bool has_rolreplication(Oid roleid);
 
