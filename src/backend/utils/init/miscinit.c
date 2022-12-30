@@ -135,7 +135,8 @@ InitPostmasterChild(void)
 
 	/* Initialize process-local latch support */
 	InitializeLatchSupport();
-	InitProcessLocalLatch();
+	MyLatch = &LocalLatchData;
+	InitLatch(MyLatch);
 	InitializeLatchWaitSet();
 
 	/*
@@ -188,7 +189,8 @@ InitStandaloneProcess(const char *argv0)
 
 	/* Initialize process-local latch support */
 	InitializeLatchSupport();
-	InitProcessLocalLatch();
+	MyLatch = &LocalLatchData;
+	InitLatch(MyLatch);
 	InitializeLatchWaitSet();
 
 	/*
@@ -228,13 +230,6 @@ SwitchToSharedLatch(void)
 	 * condition before waiting for the latch, but a bit care can't hurt.
 	 */
 	SetLatch(MyLatch);
-}
-
-void
-InitProcessLocalLatch(void)
-{
-	MyLatch = &LocalLatchData;
-	InitLatch(MyLatch);
 }
 
 void
