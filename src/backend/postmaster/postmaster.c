@@ -1601,9 +1601,9 @@ checkControlFile(void)
  *
  * In normal conditions we wait at most one minute, to ensure that the other
  * background tasks handled by ServerLoop get done even when no requests are
- * arriving.  However, if there are background workers or a WAL receiver
- * waiting to be started, we make sure they are quickly serviced.  Other
- * exception cases are as shown in the code.
+ * arriving.  However, if there are background workers waiting to be started,
+ * we don't actually sleep so that they are quickly serviced.  Other exception
+ * cases are as shown in the code.
  */
 static void
 DetermineSleepTime(struct timeval *timeout)
@@ -1611,12 +1611,11 @@ DetermineSleepTime(struct timeval *timeout)
 	TimestampTz next_wakeup = 0;
 
 	/*
-	 * Normal case: either there are no background workers and no WAL receiver
-	 * at all, or we're in a shutdown sequence (during which we ignore
-	 * bgworkers altogether).
+	 * Normal case: either there are no background workers at all, or we're in
+	 * a shutdown sequence (during which we ignore bgworkers altogether).
 	 */
 	if (Shutdown > NoShutdown ||
-		(!StartWorkerNeeded && !HaveCrashedWorker && !WalReceiverRequested))
+		(!StartWorkerNeeded && !HaveCrashedWorker))
 	{
 		if (AbortStartTime != 0)
 		{
@@ -1638,17 +1637,6 @@ DetermineSleepTime(struct timeval *timeout)
 	{
 		timeout->tv_sec = 0;
 		timeout->tv_usec = 0;
-		return;
-	}
-
-	/*
-	 * We're probably waiting for SIGCHLD before starting the WAL receiver.  We
-	 * don't expect that to take long.
-	 */
-	if (WalReceiverRequested)
-	{
-		timeout->tv_sec = 0;
-		timeout->tv_usec = 100000;	/* 100ms */
 		return;
 	}
 
