@@ -34,7 +34,6 @@
 #include "nodes/makefuncs.h"
 #include "pgstat.h"
 #include "replication/logicallauncher.h"
-#include "replication/logicalworker.h"
 #include "replication/origin.h"
 #include "replication/slot.h"
 #include "replication/walreceiver.h"
@@ -1362,9 +1361,6 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 	ObjectAddressSet(myself, SubscriptionRelationId, subid);
 
 	InvokeObjectPostAlterHook(SubscriptionRelationId, subid, 0);
-
-	/* Wake up the logical replication workers to handle this change quickly. */
-	LogicalRepWorkersWakeupAtCommit(subid);
 
 	return myself;
 }

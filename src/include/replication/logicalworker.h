@@ -16,7 +16,4 @@ extern void ApplyWorkerMain(Datum main_arg);
 
 extern bool IsLogicalWorker(void);
 
-extern void LogicalRepWorkersWakeupAtCommit(Oid subid);
-extern void AtEOXact_LogicalRepWorkers(bool isCommit);
-
 #endif							/* LOGICALWORKER_H */
