@@ -28,6 +28,8 @@ my $node_standby = PostgreSQL::Test::Cluster->new('standby');
 # of the primary.
 $node_standby->init_from_backup($node_primary, $backup_name,
 	has_restoring => 1);
+$node_standby->append_conf('postgresql.conf',
+	"wal_retrieve_retry_interval = '100ms'");
 
 # Set archive_cleanup_command and recovery_end_command, checking their
 # execution by the backend with dummy commands.
