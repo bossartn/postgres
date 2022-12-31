@@ -3466,6 +3466,8 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 		 */
 		if (lastSourceFailed)
 		{
+			long		wait_time = 0;
+
 			/*
 			 * Don't allow any retry loops to occur during nonblocking
 			 * readahead.  Let the caller process everything that has been
@@ -3561,28 +3563,27 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 					if (!TimestampDifferenceExceeds(last_fail_time, now,
 													wal_retrieve_retry_interval))
 					{
-						long		wait_time;
-
 						wait_time = wal_retrieve_retry_interval -
 							TimestampDifferenceMilliseconds(last_fail_time, now);
 
 						elog(LOG, "waiting for WAL to become available at %X/%X",
 							 LSN_FORMAT_ARGS(RecPtr));
-
-						/* Do background tasks that might benefit us later. */
-						KnownAssignedTransactionIdsIdleMaintenance();
-
-						(void) WaitLatch(&XLogRecoveryCtl->recoveryWakeupLatch,
-										 WL_LATCH_SET | WL_TIMEOUT |
-										 WL_EXIT_ON_PM_DEATH,
-										 wait_time,
-										 WAIT_EVENT_RECOVERY_RETRIEVE_RETRY_INTERVAL);
-						ResetLatch(&XLogRecoveryCtl->recoveryWakeupLatch);
-						now = GetCurrentTimestamp();
-
-						/* Handle interrupt signals of startup process */
-						HandleStartupProcInterrupts();
 					}
+
+					/* Do background tasks that might benefit us later. */
+					KnownAssignedTransactionIdsIdleMaintenance();
+
+					(void) WaitLatch(&XLogRecoveryCtl->recoveryWakeupLatch,
+									 WL_LATCH_SET | WL_TIMEOUT |
+									 WL_EXIT_ON_PM_DEATH,
+									 wait_time,
+									 WAIT_EVENT_RECOVERY_RETRIEVE_RETRY_INTERVAL);
+					ResetLatch(&XLogRecoveryCtl->recoveryWakeupLatch);
+					now = GetCurrentTimestamp();
+
+					/* Handle interrupt signals of startup process */
+					HandleStartupProcInterrupts();
+
 					last_fail_time = now;
 					currentSource = XLOG_FROM_ARCHIVE;
 					break;
