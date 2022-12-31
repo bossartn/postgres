@@ -3583,9 +3583,6 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 						/* Handle interrupt signals of startup process */
 						HandleStartupProcInterrupts();
 					}
-					else
-						pg_memory_barrier();
-
 					last_fail_time = now;
 					currentSource = XLOG_FROM_ARCHIVE;
 					break;
