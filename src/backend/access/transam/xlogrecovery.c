@@ -3583,11 +3583,6 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 						/* Handle interrupt signals of startup process */
 						HandleStartupProcInterrupts();
 					}
-#ifdef WIN32
-					else
-						pgwin32_dispatch_queued_signals();
-#endif
-
 					last_fail_time = now;
 					currentSource = XLOG_FROM_ARCHIVE;
 					break;
