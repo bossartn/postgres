@@ -3558,14 +3558,13 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 					 * milliseconds to avoid busy-waiting.
 					 */
 					now = GetCurrentTimestamp();
-					if (true || !TimestampDifferenceExceeds(last_fail_time, now,
+					if (!TimestampDifferenceExceeds(last_fail_time, now,
 													wal_retrieve_retry_interval))
 					{
 						long		wait_time;
 
 						wait_time = wal_retrieve_retry_interval -
 							TimestampDifferenceMilliseconds(last_fail_time, now);
-						wait_time = 0;
 
 						elog(LOG, "waiting for WAL to become available at %X/%X",
 							 LSN_FORMAT_ARGS(RecPtr));
