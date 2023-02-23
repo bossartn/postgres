@@ -754,9 +754,9 @@ SELECT pg_input_is_valid('01010001', 'bit(10)');
 (1 row)
 
 SELECT pg_input_error_message('01010001', 'bit(10)');
-             pg_input_error_message              
--------------------------------------------------
- bit string length 8 does not match type bit(10)
+                   pg_input_error_message                    
+-------------------------------------------------------------
+ ("bit string length 8 does not match type bit(10)",,,22026)
 (1 row)
 
 SELECT pg_input_is_valid('01010Z01', 'bit(8)');
@@ -766,9 +766,9 @@ SELECT pg_input_is_valid('01010Z01', 'bit(8)');
 (1 row)
 
 SELECT pg_input_error_message('01010Z01', 'bit(8)');
-     pg_input_error_message      
----------------------------------
- "Z" is not a valid binary digit
+            pg_input_error_message             
+-----------------------------------------------
+ ("""Z"" is not a valid binary digit",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('x01010Z01', 'bit(32)');
@@ -778,9 +778,9 @@ SELECT pg_input_is_valid('x01010Z01', 'bit(32)');
 (1 row)
 
 SELECT pg_input_error_message('x01010Z01', 'bit(32)');
-        pg_input_error_message        
---------------------------------------
- "Z" is not a valid hexadecimal digit
+               pg_input_error_message               
+----------------------------------------------------
+ ("""Z"" is not a valid hexadecimal digit",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('01010Z01', 'varbit');
@@ -790,9 +790,9 @@ SELECT pg_input_is_valid('01010Z01', 'varbit');
 (1 row)
 
 SELECT pg_input_error_message('01010Z01', 'varbit');
-     pg_input_error_message      
----------------------------------
- "Z" is not a valid binary digit
+            pg_input_error_message             
+-----------------------------------------------
+ ("""Z"" is not a valid binary digit",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('x01010Z01', 'varbit');
@@ -802,8 +802,8 @@ SELECT pg_input_is_valid('x01010Z01', 'varbit');
 (1 row)
 
 SELECT pg_input_error_message('x01010Z01', 'varbit');
-        pg_input_error_message        
---------------------------------------
- "Z" is not a valid hexadecimal digit
+               pg_input_error_message               
+----------------------------------------------------
+ ("""Z"" is not a valid hexadecimal digit",,,22P02)
 (1 row)
 

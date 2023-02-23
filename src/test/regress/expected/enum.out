@@ -38,15 +38,15 @@ SELECT pg_input_is_valid('mauve', 'rainbow');
 (1 row)
 
 SELECT pg_input_error_message('mauve', 'rainbow');
-            pg_input_error_message             
------------------------------------------------
- invalid input value for enum rainbow: "mauve"
+                   pg_input_error_message                    
+-------------------------------------------------------------
+ ("invalid input value for enum rainbow: ""mauve""",,,22P02)
 (1 row)
 
 SELECT pg_input_error_message(repeat('too_long', 32), 'rainbow');
-                                                                                                                                          pg_input_error_message                                                                                                                                          
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- invalid input value for enum rainbow: "too_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_long"
+                                                                                                                                                 pg_input_error_message                                                                                                                                                 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ("invalid input value for enum rainbow: ""too_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_longtoo_long""",,,22P02)
 (1 row)
 
 --

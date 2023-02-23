@@ -268,11 +268,11 @@ FROM (VALUES ('9780123456786', 'UPC'),
              ('postgresql...','EAN13'),
              ('9771234567003','ISSN'))
       AS a(str,typ);
-      isn      | type  | ok |                         errmsg                         
----------------+-------+----+--------------------------------------------------------
- 9780123456786 | UPC   | f  | cannot cast ISBN to UPC for number: "9780123456786"
- postgresql... | EAN13 | f  | invalid input syntax for EAN13 number: "postgresql..."
- 9771234567003 | ISSN  | t  | 
+      isn      | type  | ok |                                errmsg                                
+---------------+-------+----+----------------------------------------------------------------------
+ 9780123456786 | UPC   | f  | ("cannot cast ISBN to UPC for number: ""9780123456786""",,,22P02)
+ postgresql... | EAN13 | f  | ("invalid input syntax for EAN13 number: ""postgresql...""",,,22P02)
+ 9771234567003 | ISSN  | t  | (,,,)
 (3 rows)
 
 --

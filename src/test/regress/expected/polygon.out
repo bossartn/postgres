@@ -314,9 +314,9 @@ SELECT pg_input_is_valid('(2.0,0.8,0.1)', 'polygon');
 (1 row)
 
 SELECT pg_input_error_message('(2.0,0.8,0.1)', 'polygon');
-                 pg_input_error_message                 
---------------------------------------------------------
- invalid input syntax for type polygon: "(2.0,0.8,0.1)"
+                        pg_input_error_message                        
+----------------------------------------------------------------------
+ ("invalid input syntax for type polygon: ""(2.0,0.8,0.1)""",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('(2.0,xyz)', 'polygon');
@@ -326,8 +326,8 @@ SELECT pg_input_is_valid('(2.0,xyz)', 'polygon');
 (1 row)
 
 SELECT pg_input_error_message('(2.0,xyz)', 'polygon');
-               pg_input_error_message               
-----------------------------------------------------
- invalid input syntax for type polygon: "(2.0,xyz)"
+                      pg_input_error_message                      
+------------------------------------------------------------------
+ ("invalid input syntax for type polygon: ""(2.0,xyz)""",,,22P02)
 (1 row)
 

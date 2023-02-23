@@ -647,9 +647,9 @@ SELECT pg_input_is_valid('200', 'box');
 (1 row)
 
 SELECT pg_input_error_message('200', 'box');
-          pg_input_error_message          
-------------------------------------------
- invalid input syntax for type box: "200"
+                 pg_input_error_message                 
+--------------------------------------------------------
+ ("invalid input syntax for type box: ""200""",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('((200,300),(500, xyz))', 'box');
@@ -659,8 +659,8 @@ SELECT pg_input_is_valid('((200,300),(500, xyz))', 'box');
 (1 row)
 
 SELECT pg_input_error_message('((200,300),(500, xyz))', 'box');
-                   pg_input_error_message                    
--------------------------------------------------------------
- invalid input syntax for type box: "((200,300),(500, xyz))"
+                          pg_input_error_message                           
+---------------------------------------------------------------------------
+ ("invalid input syntax for type box: ""((200,300),(500, xyz))""",,,22P02)
 (1 row)
 

@@ -1283,13 +1283,13 @@ FROM unnest(ARRAY['-1 .. 1'::text,
                   'ABC',
                   '1 e7',
                   '1e700']) str;
-   seg    | ok |                errmsg                 
-----------+----+---------------------------------------
- -1 .. 1  | t  | 
- 100(+-)1 | t  | 
-          | f  | bad seg representation
- ABC      | f  | bad seg representation
- 1 e7     | f  | bad seg representation
- 1e700    | f  | "1e700" is out of range for type real
+   seg    | ok |                              errmsg                               
+----------+----+-------------------------------------------------------------------
+ -1 .. 1  | t  | (,,,)
+ 100(+-)1 | t  | (,,,)
+          | f  | ("bad seg representation","syntax error at end of input",,42601)
+ ABC      | f  | ("bad seg representation","syntax error at or near ""A""",,42601)
+ 1 e7     | f  | ("bad seg representation","syntax error at or near ""e""",,42601)
+ 1e700    | f  | ("""1e700"" is out of range for type real",,,22003)
 (6 rows)
 

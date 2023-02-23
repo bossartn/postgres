@@ -79,9 +79,9 @@ SELECT pg_input_is_valid('01XYZ', 'oid');
 (1 row)
 
 SELECT pg_input_error_message('01XYZ', 'oid');
-           pg_input_error_message           
---------------------------------------------
- invalid input syntax for type oid: "01XYZ"
+                  pg_input_error_message                  
+----------------------------------------------------------
+ ("invalid input syntax for type oid: ""01XYZ""",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('9999999999', 'oid');
@@ -91,9 +91,9 @@ SELECT pg_input_is_valid('9999999999', 'oid');
 (1 row)
 
 SELECT pg_input_error_message('9999999999', 'oid');
-             pg_input_error_message              
--------------------------------------------------
- value "9999999999" is out of range for type oid
+                    pg_input_error_message                     
+---------------------------------------------------------------
+ ("value ""9999999999"" is out of range for type oid",,,22003)
 (1 row)
 
 -- While we're here, check oidvector as well
@@ -110,9 +110,9 @@ SELECT pg_input_is_valid('01 01XYZ', 'oidvector');
 (1 row)
 
 SELECT pg_input_error_message('01 01XYZ', 'oidvector');
-          pg_input_error_message          
-------------------------------------------
- invalid input syntax for type oid: "XYZ"
+                 pg_input_error_message                 
+--------------------------------------------------------
+ ("invalid input syntax for type oid: ""XYZ""",,,22P02)
 (1 row)
 
 SELECT pg_input_is_valid('01 9999999999', 'oidvector');
@@ -122,9 +122,9 @@ SELECT pg_input_is_valid('01 9999999999', 'oidvector');
 (1 row)
 
 SELECT pg_input_error_message('01 9999999999', 'oidvector');
-             pg_input_error_message              
--------------------------------------------------
- value "9999999999" is out of range for type oid
+                    pg_input_error_message                     
+---------------------------------------------------------------
+ ("value ""9999999999"" is out of range for type oid",,,22003)
 (1 row)
 
 SELECT o.* FROM OID_TBL o WHERE o.f1 = 1234;

@@ -103,9 +103,9 @@ SELECT pg_input_is_valid($$''$$, 'tsvector');
 (1 row)
 
 SELECT pg_input_error_message($$''$$, 'tsvector');
-     pg_input_error_message     
---------------------------------
- syntax error in tsvector: "''"
+            pg_input_error_message            
+----------------------------------------------
+ ("syntax error in tsvector: ""''""",,,42601)
 (1 row)
 
 --Base tsquery test
@@ -405,15 +405,15 @@ SELECT pg_input_is_valid('foo!', 'tsquery');
 (1 row)
 
 SELECT pg_input_error_message('foo!', 'tsquery');
-     pg_input_error_message      
----------------------------------
- syntax error in tsquery: "foo!"
+            pg_input_error_message             
+-----------------------------------------------
+ ("syntax error in tsquery: ""foo!""",,,42601)
 (1 row)
 
 SELECT pg_input_error_message('a <100000> b', 'tsquery');
-                                pg_input_error_message                                 
----------------------------------------------------------------------------------------
- distance in phrase operator must be an integer value between zero and 16384 inclusive
+                                      pg_input_error_message                                       
+---------------------------------------------------------------------------------------------------
+ ("distance in phrase operator must be an integer value between zero and 16384 inclusive",,,22023)
 (1 row)
 
 --comparisons
