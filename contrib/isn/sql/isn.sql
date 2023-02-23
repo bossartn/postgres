@@ -110,7 +110,7 @@ SELECT '12345679'::ISSN = '9771234567003'::EAN13 AS "ok",
 -- test non-error-throwing input API
 SELECT str as isn, typ as "type",
        pg_input_is_valid(str,typ) as ok,
-       pg_input_error_message(str,typ) as errmsg
+       pg_input_error_info(str,typ) as errmsg
 FROM (VALUES ('9780123456786', 'UPC'),
              ('postgresql...','EAN13'),
              ('9771234567003','ISSN'))

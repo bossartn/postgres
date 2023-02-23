@@ -8101,7 +8101,7 @@ SELECT count(*) FROM _ltreetest WHERE t ? '{23.*.1,23.*.2}' ;
 -- test non-error-throwing input
 SELECT str as "value", typ as "type",
        pg_input_is_valid(str,typ) as ok,
-       pg_input_error_message(str,typ) as errmsg
+       pg_input_error_info(str,typ) as errmsg
 FROM (VALUES ('.2.3', 'ltree'),
              ('1.2.', 'ltree'),
              ('1.2.3','ltree'),
@@ -8111,15 +8111,15 @@ FROM (VALUES ('.2.3', 'ltree'),
              ('$tree & aWdf@*','ltxtquery'),
              ('!tree & aWdf@*','ltxtquery'))
       AS a(str,typ);
-     value      |   type    | ok |               errmsg               
-----------------+-----------+----+------------------------------------
- .2.3           | ltree     | f  | ltree syntax error at character 1
- 1.2.           | ltree     | f  | ltree syntax error
- 1.2.3          | ltree     | t  | 
- @.2.3          | lquery    | f  | lquery syntax error at character 1
-  2.3           | lquery    | f  | lquery syntax error at character 1
- 1.2.3          | lquery    | t  | 
- $tree & aWdf@* | ltxtquery | f  | operand syntax error
- !tree & aWdf@* | ltxtquery | t  | 
+     value      |   type    | ok |                          errmsg                          
+----------------+-----------+----+----------------------------------------------------------
+ .2.3           | ltree     | f  | ("ltree syntax error at character 1",,,42601)
+ 1.2.           | ltree     | f  | ("ltree syntax error","Unexpected end of input.",,42601)
+ 1.2.3          | ltree     | t  | (,,,)
+ @.2.3          | lquery    | f  | ("lquery syntax error at character 1",,,42601)
+  2.3           | lquery    | f  | ("lquery syntax error at character 1",,,42601)
+ 1.2.3          | lquery    | t  | (,,,)
+ $tree & aWdf@* | ltxtquery | f  | ("operand syntax error",,,42601)
+ !tree & aWdf@* | ltxtquery | t  | (,,,)
 (8 rows)
 

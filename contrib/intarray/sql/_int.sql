@@ -79,7 +79,7 @@ SELECT '1&(2&(4&(5|!6)))'::query_int;
 
 SELECT str as "query_int",
        pg_input_is_valid(str,'query_int') as ok,
-       pg_input_error_message(str,'query_int') as errmsg
+       pg_input_error_info(str,'query_int') as errmsg
 FROM (VALUES ('1&(2&(4&(5|6)))'),
              ('1#(2&(4&(5&6)))'),
              ('foo'))
