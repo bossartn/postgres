@@ -101,9 +101,9 @@ SELECT pg_input_is_valid('1e400', 'float4');
 (1 row)
 
 SELECT pg_input_error_message('1e400', 'float4');
-               pg_input_error_message                
------------------------------------------------------
- ("""1e400"" is out of range for type real",,,22003)
+        pg_input_error_message         
+---------------------------------------
+ "1e400" is out of range for type real
 (1 row)
 
 -- special inputs

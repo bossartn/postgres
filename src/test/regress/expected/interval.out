@@ -92,15 +92,15 @@ SELECT pg_input_is_valid('@ 30 eons ago', 'interval');
 (1 row)
 
 SELECT pg_input_error_message('garbage', 'interval');
-                     pg_input_error_message                      
------------------------------------------------------------------
- ("invalid input syntax for type interval: ""garbage""",,,22007)
+              pg_input_error_message               
+---------------------------------------------------
+ invalid input syntax for type interval: "garbage"
 (1 row)
 
 SELECT pg_input_error_message('@ 30 eons ago', 'interval');
-                        pg_input_error_message                         
------------------------------------------------------------------------
- ("invalid input syntax for type interval: ""@ 30 eons ago""",,,22007)
+                 pg_input_error_message                  
+---------------------------------------------------------
+ invalid input syntax for type interval: "@ 30 eons ago"
 (1 row)
 
 -- test interval operators

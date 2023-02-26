@@ -166,9 +166,9 @@ SELECT pg_input_is_valid('08:00:2b:01:02:ZZ', 'macaddr');
 (1 row)
 
 SELECT pg_input_error_message('08:00:2b:01:02:ZZ', 'macaddr');
-                          pg_input_error_message                          
---------------------------------------------------------------------------
- ("invalid input syntax for type macaddr: ""08:00:2b:01:02:ZZ""",,,22P02)
+                   pg_input_error_message                   
+------------------------------------------------------------
+ invalid input syntax for type macaddr: "08:00:2b:01:02:ZZ"
 (1 row)
 
 SELECT pg_input_is_valid('08:00:2b:01:02:', 'macaddr');
@@ -178,8 +178,8 @@ SELECT pg_input_is_valid('08:00:2b:01:02:', 'macaddr');
 (1 row)
 
 SELECT pg_input_error_message('08:00:2b:01:02:', 'macaddr');
-                         pg_input_error_message                         
-------------------------------------------------------------------------
- ("invalid input syntax for type macaddr: ""08:00:2b:01:02:""",,,22P02)
+                  pg_input_error_message                  
+----------------------------------------------------------
+ invalid input syntax for type macaddr: "08:00:2b:01:02:"
 (1 row)
 

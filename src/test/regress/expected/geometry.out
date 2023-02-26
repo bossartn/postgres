@@ -5303,9 +5303,9 @@ SELECT pg_input_is_valid('(1', 'circle');
 (1 row)
 
 SELECT pg_input_error_message('1,', 'circle');
-                  pg_input_error_message                  
-----------------------------------------------------------
- ("invalid input syntax for type circle: ""1,""",,,22P02)
+           pg_input_error_message           
+--------------------------------------------
+ invalid input syntax for type circle: "1,"
 (1 row)
 
 SELECT pg_input_is_valid('(1,2),-1', 'circle');
@@ -5315,8 +5315,8 @@ SELECT pg_input_is_valid('(1,2),-1', 'circle');
 (1 row)
 
 SELECT pg_input_error_message('(1,2),-1', 'circle');
-                     pg_input_error_message                     
-----------------------------------------------------------------
- ("invalid input syntax for type circle: ""(1,2),-1""",,,22P02)
+              pg_input_error_message              
+--------------------------------------------------
+ invalid input syntax for type circle: "(1,2),-1"
 (1 row)
 

@@ -34,9 +34,9 @@ SELECT pg_input_is_valid('16AE7F7', 'pg_lsn');
 (1 row)
 
 SELECT pg_input_error_message('16AE7F7', 'pg_lsn');
-                    pg_input_error_message                     
----------------------------------------------------------------
- ("invalid input syntax for type pg_lsn: ""16AE7F7""",,,22P02)
+             pg_input_error_message              
+-------------------------------------------------
+ invalid input syntax for type pg_lsn: "16AE7F7"
 (1 row)
 
 -- Min/Max aggregation

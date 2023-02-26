@@ -50,8 +50,8 @@ SELECT pg_input_is_valid('[(1,2),(3)]', 'lseg');
 (1 row)
 
 SELECT pg_input_error_message('[(1,2),(3)]', 'lseg');
-                     pg_input_error_message                      
------------------------------------------------------------------
- ("invalid input syntax for type lseg: ""[(1,2),(3)]""",,,22P02)
+              pg_input_error_message               
+---------------------------------------------------
+ invalid input syntax for type lseg: "[(1,2),(3)]"
 (1 row)
 

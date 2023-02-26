@@ -44,9 +44,9 @@ SELECT pg_input_is_valid('asdf', 'xid');
 (1 row)
 
 SELECT pg_input_error_message('0xffffffffff', 'xid');
-                     pg_input_error_message                      
------------------------------------------------------------------
- ("value ""0xffffffffff"" is out of range for type xid",,,22003)
+              pg_input_error_message               
+---------------------------------------------------
+ value "0xffffffffff" is out of range for type xid
 (1 row)
 
 SELECT pg_input_is_valid('42', 'xid8');
@@ -62,9 +62,9 @@ SELECT pg_input_is_valid('asdf', 'xid8');
 (1 row)
 
 SELECT pg_input_error_message('0xffffffffffffffffffff', 'xid8');
-                           pg_input_error_message                           
-----------------------------------------------------------------------------
- ("value ""0xffffffffffffffffffff"" is out of range for type xid8",,,22003)
+                    pg_input_error_message                    
+--------------------------------------------------------------
+ value "0xffffffffffffffffffff" is out of range for type xid8
 (1 row)
 
 -- equality
@@ -224,9 +224,9 @@ select pg_input_is_valid('31:12:', 'pg_snapshot');
 (1 row)
 
 select pg_input_error_message('31:12:', 'pg_snapshot');
-                      pg_input_error_message                       
--------------------------------------------------------------------
- ("invalid input syntax for type pg_snapshot: ""31:12:""",,,22P02)
+               pg_input_error_message                
+-----------------------------------------------------
+ invalid input syntax for type pg_snapshot: "31:12:"
 (1 row)
 
 select pg_input_is_valid('12:16:14,13', 'pg_snapshot');
@@ -236,9 +236,9 @@ select pg_input_is_valid('12:16:14,13', 'pg_snapshot');
 (1 row)
 
 select pg_input_error_message('12:16:14,13', 'pg_snapshot');
-                         pg_input_error_message                         
-------------------------------------------------------------------------
- ("invalid input syntax for type pg_snapshot: ""12:16:14,13""",,,22P02)
+                  pg_input_error_message                  
+----------------------------------------------------------
+ invalid input syntax for type pg_snapshot: "12:16:14,13"
 (1 row)
 
 create temp table snapshot_test (
