@@ -65,7 +65,7 @@ SELECT bool '' AS error;
 -- Also try it with non-error-throwing API
 SELECT pg_input_is_valid('true', 'bool');
 SELECT pg_input_is_valid('asdf', 'bool');
-SELECT pg_input_error_info('junk', 'bool');
+SELECT pg_input_error_message('junk', 'bool');
 
 -- and, or, not in qualifications
 

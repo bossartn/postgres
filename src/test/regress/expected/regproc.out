@@ -448,10 +448,10 @@ SELECT to_regnamespace('foo.bar');
 (1 row)
 
 -- Test soft-error API
-SELECT pg_input_error_info('ng_catalog.pg_class', 'regclass');
-                     pg_input_error_info                     
--------------------------------------------------------------
- ("relation ""ng_catalog.pg_class"" does not exist",,,42P01)
+SELECT pg_input_error_message('ng_catalog.pg_class', 'regclass');
+            pg_input_error_message             
+-----------------------------------------------
+ relation "ng_catalog.pg_class" does not exist
 (1 row)
 
 SELECT pg_input_is_valid('ng_catalog."POSIX"', 'regcollation');
@@ -460,87 +460,87 @@ SELECT pg_input_is_valid('ng_catalog."POSIX"', 'regcollation');
  f
 (1 row)
 
-SELECT pg_input_error_info('no_such_config', 'regconfig');
-                           pg_input_error_info                           
--------------------------------------------------------------------------
- ("text search configuration ""no_such_config"" does not exist",,,42704)
+SELECT pg_input_error_message('no_such_config', 'regconfig');
+                  pg_input_error_message                   
+-----------------------------------------------------------
+ text search configuration "no_such_config" does not exist
 (1 row)
 
-SELECT pg_input_error_info('no_such_dictionary', 'regdictionary');
-                           pg_input_error_info                            
---------------------------------------------------------------------------
- ("text search dictionary ""no_such_dictionary"" does not exist",,,42704)
+SELECT pg_input_error_message('no_such_dictionary', 'regdictionary');
+                   pg_input_error_message                   
+------------------------------------------------------------
+ text search dictionary "no_such_dictionary" does not exist
 (1 row)
 
-SELECT pg_input_error_info('Nonexistent', 'regnamespace');
-                pg_input_error_info                
----------------------------------------------------
- ("schema ""nonexistent"" does not exist",,,3F000)
+SELECT pg_input_error_message('Nonexistent', 'regnamespace');
+       pg_input_error_message        
+-------------------------------------
+ schema "nonexistent" does not exist
 (1 row)
 
-SELECT pg_input_error_info('ng_catalog.||/', 'regoper');
-                 pg_input_error_info                 
------------------------------------------------------
- ("operator does not exist: ng_catalog.||/",,,42883)
-(1 row)
-
-SELECT pg_input_error_info('-', 'regoper');
-            pg_input_error_info             
---------------------------------------------
- ("more than one operator named -",,,42725)
-(1 row)
-
-SELECT pg_input_error_info('ng_catalog.+(int4,int4)', 'regoperator');
-                     pg_input_error_info                      
---------------------------------------------------------------
- ("operator does not exist: ng_catalog.+(int4,int4)",,,42883)
-(1 row)
-
-SELECT pg_input_error_info('-', 'regoperator');
-           pg_input_error_info           
+SELECT pg_input_error_message('ng_catalog.||/', 'regoper');
+         pg_input_error_message          
 -----------------------------------------
- ("expected a left parenthesis",,,22P02)
+ operator does not exist: ng_catalog.||/
 (1 row)
 
-SELECT pg_input_error_info('ng_catalog.now', 'regproc');
-                  pg_input_error_info                   
---------------------------------------------------------
- ("function ""ng_catalog.now"" does not exist",,,42883)
+SELECT pg_input_error_message('-', 'regoper');
+     pg_input_error_message     
+--------------------------------
+ more than one operator named -
 (1 row)
 
-SELECT pg_input_error_info('ng_catalog.abs(numeric)', 'regprocedure');
-                       pg_input_error_info                       
------------------------------------------------------------------
- ("function ""ng_catalog.abs(numeric)"" does not exist",,,42883)
-(1 row)
-
-SELECT pg_input_error_info('ng_catalog.abs(numeric', 'regprocedure');
-           pg_input_error_info            
-------------------------------------------
- ("expected a right parenthesis",,,22P02)
-(1 row)
-
-SELECT pg_input_error_info('regress_regrole_test', 'regrole');
-                   pg_input_error_info                    
-----------------------------------------------------------
- ("role ""regress_regrole_test"" does not exist",,,42704)
-(1 row)
-
-SELECT pg_input_error_info('no_such_type', 'regtype');
-               pg_input_error_info                
+SELECT pg_input_error_message('ng_catalog.+(int4,int4)', 'regoperator');
+              pg_input_error_message              
 --------------------------------------------------
- ("type ""no_such_type"" does not exist",,,42704)
+ operator does not exist: ng_catalog.+(int4,int4)
+(1 row)
+
+SELECT pg_input_error_message('-', 'regoperator');
+   pg_input_error_message    
+-----------------------------
+ expected a left parenthesis
+(1 row)
+
+SELECT pg_input_error_message('ng_catalog.now', 'regproc');
+          pg_input_error_message          
+------------------------------------------
+ function "ng_catalog.now" does not exist
+(1 row)
+
+SELECT pg_input_error_message('ng_catalog.abs(numeric)', 'regprocedure');
+              pg_input_error_message               
+---------------------------------------------------
+ function "ng_catalog.abs(numeric)" does not exist
+(1 row)
+
+SELECT pg_input_error_message('ng_catalog.abs(numeric', 'regprocedure');
+    pg_input_error_message    
+------------------------------
+ expected a right parenthesis
+(1 row)
+
+SELECT pg_input_error_message('regress_regrole_test', 'regrole');
+           pg_input_error_message           
+--------------------------------------------
+ role "regress_regrole_test" does not exist
+(1 row)
+
+SELECT pg_input_error_message('no_such_type', 'regtype');
+       pg_input_error_message       
+------------------------------------
+ type "no_such_type" does not exist
 (1 row)
 
 -- Some cases that should be soft errors, but are not yet
-SELECT pg_input_error_info('incorrect type name syntax', 'regtype');
+SELECT pg_input_error_message('incorrect type name syntax', 'regtype');
 ERROR:  syntax error at or near "type"
-LINE 1: SELECT pg_input_error_info('incorrect type name syntax', 're...
+LINE 1: SELECT pg_input_error_message('incorrect type name syntax', ...
                   ^
 CONTEXT:  invalid type name "incorrect type name syntax"
-SELECT pg_input_error_info('numeric(1,2,3)', 'regtype');  -- bogus typmod
+SELECT pg_input_error_message('numeric(1,2,3)', 'regtype');  -- bogus typmod
 ERROR:  invalid NUMERIC type modifier
-SELECT pg_input_error_info('way.too.many.names', 'regtype');
+SELECT pg_input_error_message('way.too.many.names', 'regtype');
 ERROR:  improper qualified name (too many dotted names): way.too.many.names
-SELECT pg_input_error_info('no_such_catalog.schema.name', 'regtype');
+SELECT pg_input_error_message('no_such_catalog.schema.name', 'regtype');
 ERROR:  cross-database references are not implemented: no_such_catalog.schema.name
