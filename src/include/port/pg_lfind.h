@@ -177,4 +177,193 @@ pg_lfind32(uint32 key, uint32 *base, uint32 nelem)
 	return false;
 }
 
+/*
+ * pg_lfind64
+ *
+ * Return true if there is an element in 'base' that equals 'key', otherwise
+ * return false.
+ */
+static inline bool
+pg_lfind64(uint64 key, uint64 *base, uint32 nelem)
+{
+	uint32		i = 0;
+
+#ifndef USE_NO_SIMD
+
+	/*
+	 * For better instruction-level parallelism, each loop iteration operates
+	 * on a block of four registers.
+	 */
+	const Vector64 keys = vector64_broadcast(key);	/* load copies of key */
+	const uint32 nelem_per_vector = sizeof(Vector64) / sizeof(uint64);
+	const uint32 nelem_per_iteration = 4 * nelem_per_vector;
+
+	/* round down to multiple of elements per iteration */
+	const uint32 tail_idx = nelem & ~(nelem_per_iteration - 1);
+
+#if defined(USE_ASSERT_CHECKING)
+	bool		assert_result = false;
+
+	/* pre-compute the result for assert checking */
+	for (i = 0; i < nelem; i++)
+	{
+		if (key == base[i])
+		{
+			assert_result = true;
+			break;
+		}
+	}
+#endif
+
+	for (i = 0; i < tail_idx; i += nelem_per_iteration)
+	{
+		Vector64	vals1,
+					vals2,
+					vals3,
+					vals4,
+					result1,
+					result2,
+					result3,
+					result4,
+					tmp1,
+					tmp2,
+					result;
+
+		/* load the next block into 4 registers */
+		vector64_load(&vals1, &base[i]);
+		vector64_load(&vals2, &base[i + nelem_per_vector]);
+		vector64_load(&vals3, &base[i + nelem_per_vector * 2]);
+		vector64_load(&vals4, &base[i + nelem_per_vector * 3]);
+
+		/* compare each value to the key */
+		result1 = vector64_eq(keys, vals1);
+		result2 = vector64_eq(keys, vals2);
+		result3 = vector64_eq(keys, vals3);
+		result4 = vector64_eq(keys, vals4);
+
+		/* combine the results into a single variable */
+		tmp1 = vector64_or(result1, result2);
+		tmp2 = vector64_or(result3, result4);
+		result = vector64_or(tmp1, tmp2);
+
+		/* see if there was a match */
+		if (vector64_is_highbit_set(result))
+		{
+			Assert(assert_result == true);
+			return true;
+		}
+	}
+#endif							/* ! USE_NO_SIMD */
+
+	/* Process the remaining elements one at a time. */
+	for (; i < nelem; i++)
+	{
+		if (key == base[i])
+		{
+#ifndef USE_NO_SIMD
+			Assert(assert_result == true);
+#endif
+			return true;
+		}
+	}
+
+#ifndef USE_NO_SIMD
+	Assert(assert_result == false);
+#endif
+	return false;
+}
+
+/*
+ * pg_lfind64_idx
+ *
+ * Return the address of the first element in 'base' that equals 'key', or NULL
+ * if no match is found.
+ */
+static inline uint64 *
+pg_lfind64_idx(uint64 key, uint64 *base, uint32 nelem)
+{
+	uint32		i = 0;
+
+#ifndef USE_NO_SIMD
+
+	/*
+	 * For better instruction-level parallelism, each loop iteration operates
+	 * on a block of four registers.
+	 */
+	const Vector64 keys = vector64_broadcast(key);	/* load copies of key */
+	const uint32 nelem_per_vector = sizeof(Vector64) / sizeof(uint64);
+	const uint32 nelem_per_iteration = 4 * nelem_per_vector;
+
+	/* round down to multiple of elements per iteration */
+	const uint32 tail_idx = nelem & ~(nelem_per_iteration - 1);
+
+#if defined(USE_ASSERT_CHECKING)
+	uint64	   *assert_result = NULL;
+
+	/* pre-compute the result for assert checking */
+	for (i = 0; i < nelem; i++)
+	{
+		if (key == base[i])
+		{
+			assert_result = &base[i];
+			break;
+		}
+	}
+#endif
+
+	for (i = 0; i < tail_idx; i += nelem_per_iteration)
+	{
+		Vector64	vals1,
+					vals2,
+					vals3,
+					vals4,
+					result1,
+					result2,
+					result3,
+					result4,
+					tmp1,
+					tmp2,
+					result;
+
+		/* load the next block into 4 registers */
+		vector64_load(&vals1, &base[i]);
+		vector64_load(&vals2, &base[i + nelem_per_vector]);
+		vector64_load(&vals3, &base[i + nelem_per_vector * 2]);
+		vector64_load(&vals4, &base[i + nelem_per_vector * 3]);
+
+		/* compare each value to the key */
+		result1 = vector64_eq(keys, vals1);
+		result2 = vector64_eq(keys, vals2);
+		result3 = vector64_eq(keys, vals3);
+		result4 = vector64_eq(keys, vals4);
+
+		/* combine the results into a single variable */
+		tmp1 = vector64_or(result1, result2);
+		tmp2 = vector64_or(result3, result4);
+		result = vector64_or(tmp1, tmp2);
+
+		/* if there was a match, break out to find the matching element */
+		if (vector64_is_highbit_set(result))
+			break;
+	}
+#endif							/* ! USE_NO_SIMD */
+
+	/* Process the remaining elements one at a time. */
+	for (; i < nelem; i++)
+	{
+		if (key == base[i])
+		{
+#ifndef USE_NO_SIMD
+			Assert(assert_result == &base[i]);
+#endif
+			return &base[i];
+		}
+	}
+
+#ifndef USE_NO_SIMD
+	Assert(assert_result == NULL);
+#endif
+	return NULL;
+}
+
 #endif							/* PG_LFIND_H */
