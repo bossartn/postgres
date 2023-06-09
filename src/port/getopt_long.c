@@ -50,8 +50,8 @@
  * This implementation does not use optreset.  Instead, we guarantee that
  * it can be restarted on a new argv array after a previous call returned -1,
  * if the caller resets optind to 1 before the first call of the new series.
- * (Internally, this means we must be sure to reset "place" to EMSG before
- * returning -1.)
+ * (Internally, this means we must be sure to reset "place" to EMSG and
+ * nonopt_start to -1 before returning -1.)
  */
 int
 getopt_long(int argc, char *const argv[],
@@ -60,21 +60,54 @@ getopt_long(int argc, char *const argv[],
 {
 	static char *place = EMSG;	/* option letter processing */
 	char	   *oli;			/* option letter list index */
+	static int	nonopt_start = -1;
+	static bool posix = false;
+	static bool posix_init = false;
+
+	if (!posix_init)
+	{
+		posix = getenv("POSIXLY_CORRECT");
+		posix_init = true;
+	}
 
 	if (!*place)
 	{							/* update scanning pointer */
 		if (optind >= argc)
 		{
 			place = EMSG;
+			nonopt_start = -1;
 			return -1;
 		}
 
+permute:
 		place = argv[optind];
 
 		if (place[0] != '-')
 		{
-			place = EMSG;
-			return -1;
+			char	  **args = (char **) argv;
+
+			/*
+			 * If we're obeying the POSIX standard, we must return -1 at the
+			 * first sight of a nonoption.  Else, move the nonoptions to the
+			 * end and return -1 when only nonoptions remain.
+			 */
+			if (posix || optind == nonopt_start)
+			{
+				place = EMSG;
+				nonopt_start = -1;
+				return -1;
+			}
+
+			for (int i = optind; i < argc - 1; i++)
+				args[i] = args[i + 1];
+			args[argc - 1] = place;
+
+			if (nonopt_start == -1)
+				nonopt_start = argc - 1;
+			else
+				nonopt_start--;
+
+			goto permute;
 		}
 
 		place++;
@@ -83,6 +116,7 @@ getopt_long(int argc, char *const argv[],
 		{
 			/* treat "-" as not being an option */
 			place = EMSG;
+			nonopt_start = -1;
 			return -1;
 		}
 
@@ -91,6 +125,7 @@ getopt_long(int argc, char *const argv[],
 			/* found "--", treat it as end of options */
 			++optind;
 			place = EMSG;
+			nonopt_start = -1;
 			return -1;
 		}
 
