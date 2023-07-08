@@ -518,7 +518,8 @@ XLogRecordSaveFPWs(XLogReaderState *record, const char *savepath)
 		else
 			pg_fatal("invalid fork number: %u", fork);
 
-		snprintf(filename, MAXPGPATH, "%s/%08X-%08X.%u.%u.%u.%u%s", savepath,
+		snprintf(filename, MAXPGPATH, "%s/%08X-%08X-%08X.%u.%u.%u.%u%s", savepath,
+				 record->seg.ws_tli,
 				 LSN_FORMAT_ARGS(record->ReadRecPtr),
 				 rnode.spcOid, rnode.dbOid, rnode.relNumber, blk, forkname);
 
@@ -1219,12 +1220,12 @@ main(int argc, char **argv)
 	 */
 	if (first_record != private.startptr &&
 		XLogSegmentOffset(private.startptr, WalSegSz) != 0)
-		printf(ngettext("first record is after %X/%X, at %X/%X, skipping over %u byte\n",
-						"first record is after %X/%X, at %X/%X, skipping over %u bytes\n",
-						(first_record - private.startptr)),
-			   LSN_FORMAT_ARGS(private.startptr),
-			   LSN_FORMAT_ARGS(first_record),
-			   (uint32) (first_record - private.startptr));
+		pg_log_info(ngettext("first record is after %X/%X, at %X/%X, skipping over %u byte",
+							 "first record is after %X/%X, at %X/%X, skipping over %u bytes",
+							 (first_record - private.startptr)),
+					LSN_FORMAT_ARGS(private.startptr),
+					LSN_FORMAT_ARGS(first_record),
+					(uint32) (first_record - private.startptr));
 
 	if (config.stats == true && !config.quiet)
 		stats.startptr = first_record;

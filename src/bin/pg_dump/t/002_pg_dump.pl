@@ -794,7 +794,7 @@ my %tests = (
 			\QREVOKE ALL ON TABLES FROM regress_dump_test_role;\E\n
 			\QALTER DEFAULT PRIVILEGES \E
 			\QFOR ROLE regress_dump_test_role \E
-			\QGRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLES TO regress_dump_test_role;\E
+			\QGRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO regress_dump_test_role;\E
 			/xm,
 		like => { %full_runs, section_post_data => 1, },
 		unlike => { no_privs => 1, },
@@ -1965,7 +1965,7 @@ my %tests = (
 		create_sql =>
 		  "CREATE DATABASE dump_test2 LOCALE = 'C' TEMPLATE = template0;",
 		regexp => qr/^
-			\QCREATE DATABASE dump_test2 \E.*\QLOCALE = 'C'\E
+			\QCREATE DATABASE dump_test2 \E.*\QLOCALE = 'C';\E
 			/xm,
 		like => { pg_dumpall_dbprivs => 1, },
 	},

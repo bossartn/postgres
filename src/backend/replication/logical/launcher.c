@@ -422,7 +422,7 @@ retry:
 		ereport(WARNING,
 				(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
 				 errmsg("out of logical replication worker slots"),
-				 errhint("You might need to increase max_logical_replication_workers.")));
+				 errhint("You might need to increase %s.", "max_logical_replication_workers")));
 		return false;
 	}
 
@@ -456,7 +456,7 @@ retry:
 	bgw.bgw_flags = BGWORKER_SHMEM_ACCESS |
 		BGWORKER_BACKEND_DATABASE_CONNECTION;
 	bgw.bgw_start_time = BgWorkerStart_RecoveryFinished;
-	snprintf(bgw.bgw_library_name, BGW_MAXLEN, "postgres");
+	snprintf(bgw.bgw_library_name, MAXPGPATH, "postgres");
 
 	if (is_parallel_apply_worker)
 		snprintf(bgw.bgw_function_name, BGW_MAXLEN, "ParallelApplyWorkerMain");
@@ -496,7 +496,7 @@ retry:
 		ereport(WARNING,
 				(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
 				 errmsg("out of background worker slots"),
-				 errhint("You might need to increase max_worker_processes.")));
+				 errhint("You might need to increase %s.", "max_worker_processes")));
 		return false;
 	}
 
@@ -910,7 +910,7 @@ ApplyLauncherRegister(void)
 	bgw.bgw_flags = BGWORKER_SHMEM_ACCESS |
 		BGWORKER_BACKEND_DATABASE_CONNECTION;
 	bgw.bgw_start_time = BgWorkerStart_RecoveryFinished;
-	snprintf(bgw.bgw_library_name, BGW_MAXLEN, "postgres");
+	snprintf(bgw.bgw_library_name, MAXPGPATH, "postgres");
 	snprintf(bgw.bgw_function_name, BGW_MAXLEN, "ApplyLauncherMain");
 	snprintf(bgw.bgw_name, BGW_MAXLEN,
 			 "logical replication launcher");

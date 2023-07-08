@@ -143,11 +143,7 @@ static char *lc_monetary = NULL;
 static char *lc_numeric = NULL;
 static char *lc_time = NULL;
 static char *lc_messages = NULL;
-#ifdef USE_ICU
-static char locale_provider = COLLPROVIDER_ICU;
-#else
 static char locale_provider = COLLPROVIDER_LIBC;
-#endif
 static char *icu_locale = NULL;
 static char *icu_rules = NULL;
 static const char *default_text_search_config = NULL;
@@ -313,16 +309,16 @@ void		initialize_data_directory(void);
 /*
  * macros for running pipes to postgres
  */
-#define PG_CMD_DECL		char cmd[MAXPGPATH]; FILE *cmdfd
+#define PG_CMD_DECL		FILE *cmdfd
 
-#define PG_CMD_OPEN \
+#define PG_CMD_OPEN(cmd) \
 do { \
 	cmdfd = popen_check(cmd, "w"); \
 	if (cmdfd == NULL) \
 		exit(1); /* message already printed by popen_check */ \
 } while (0)
 
-#define PG_CMD_CLOSE \
+#define PG_CMD_CLOSE() \
 do { \
 	if (pclose_check(cmdfd)) \
 		exit(1); /* message already printed by pclose_check */ \
@@ -1142,13 +1138,15 @@ test_config_settings(void)
 static bool
 test_specific_config_settings(int test_conns, int test_buffs)
 {
-	PQExpBuffer cmd = createPQExpBuffer();
+	PQExpBufferData cmd;
 	_stringlist *gnames,
 			   *gvalues;
 	int			status;
 
+	initPQExpBuffer(&cmd);
+
 	/* Set up the test postmaster invocation */
-	printfPQExpBuffer(cmd,
+	printfPQExpBuffer(&cmd,
 					  "\"%s\" --check %s %s "
 					  "-c max_connections=%d "
 					  "-c shared_buffers=%d "
@@ -1162,18 +1160,18 @@ test_specific_config_settings(int test_conns, int test_buffs)
 		 gnames != NULL;		/* assume lists have the same length */
 		 gnames = gnames->next, gvalues = gvalues->next)
 	{
-		appendPQExpBuffer(cmd, " -c %s=", gnames->str);
-		appendShellString(cmd, gvalues->str);
+		appendPQExpBuffer(&cmd, " -c %s=", gnames->str);
+		appendShellString(&cmd, gvalues->str);
 	}
 
-	appendPQExpBuffer(cmd,
+	appendPQExpBuffer(&cmd,
 					  " < \"%s\" > \"%s\" 2>&1",
 					  DEVNULL, DEVNULL);
 
 	fflush(NULL);
-	status = system(cmd->data);
+	status = system(cmd.data);
 
-	destroyPQExpBuffer(cmd);
+	termPQExpBuffer(&cmd);
 
 	return (status == 0);
 }
@@ -1473,6 +1471,7 @@ static void
 bootstrap_template1(void)
 {
 	PG_CMD_DECL;
+	PQExpBufferData cmd;
 	char	  **line;
 	char	  **bki_lines;
 	char		headerline[MAXPGPATH];
@@ -1534,16 +1533,17 @@ bootstrap_template1(void)
 	/* Also ensure backend isn't confused by this environment var: */
 	unsetenv("PGCLIENTENCODING");
 
-	snprintf(cmd, sizeof(cmd),
-			 "\"%s\" --boot -X %d %s %s %s %s",
-			 backend_exec,
-			 wal_segment_size_mb * (1024 * 1024),
-			 data_checksums ? "-k" : "",
-			 boot_options, extra_options,
-			 debug ? "-d 5" : "");
+	initPQExpBuffer(&cmd);
+
+	printfPQExpBuffer(&cmd, "\"%s\" --boot %s %s", backend_exec, boot_options, extra_options);
+	appendPQExpBuffer(&cmd, " -X %d", wal_segment_size_mb * (1024 * 1024));
+	if (data_checksums)
+		appendPQExpBuffer(&cmd, " -k");
+	if (debug)
+		appendPQExpBuffer(&cmd, " -d 5");
 
 
-	PG_CMD_OPEN;
+	PG_CMD_OPEN(cmd.data);
 
 	for (line = bki_lines; *line != NULL; line++)
 	{
@@ -1551,8 +1551,9 @@ bootstrap_template1(void)
 		free(*line);
 	}
 
-	PG_CMD_CLOSE;
+	PG_CMD_CLOSE();
 
+	termPQExpBuffer(&cmd);
 	free(bki_lines);
 
 	check_ok();
@@ -2163,7 +2164,11 @@ check_locale_name(int category, const char *locale, char **canonname)
 	if (res == NULL)
 	{
 		if (*locale)
-			pg_fatal("invalid locale name \"%s\"", locale);
+		{
+			pg_log_error("invalid locale name \"%s\"", locale);
+			pg_log_error_hint("If the locale name is specific to ICU, use --icu-locale.");
+			exit(1);
+		}
 		else
 		{
 			/*
@@ -2244,23 +2249,9 @@ icu_language_tag(const char *loc_str)
 {
 #ifdef USE_ICU
 	UErrorCode	status;
-	char		lang[ULOC_LANG_CAPACITY];
 	char	   *langtag;
 	size_t		buflen = 32;	/* arbitrary starting buffer size */
 	const bool	strict = true;
-
-	status = U_ZERO_ERROR;
-	uloc_getLanguage(loc_str, lang, ULOC_LANG_CAPACITY, &status);
-	if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING)
-	{
-		pg_fatal("could not get language from locale \"%s\": %s",
-				 loc_str, u_errorName(status));
-		return NULL;
-	}
-
-	/* C/POSIX locales aren't handled by uloc_getLanguageTag() */
-	if (strcmp(lang, "c") == 0 || strcmp(lang, "posix") == 0)
-		return pstrdup("en-US-u-va-posix");
 
 	/*
 	 * A BCP47 language tag doesn't have a clearly-defined upper limit (cf.
@@ -2326,8 +2317,7 @@ icu_validate_locale(const char *loc_str)
 
 	/* check for special language name */
 	if (strcmp(lang, "") == 0 ||
-		strcmp(lang, "root") == 0 || strcmp(lang, "und") == 0 ||
-		strcmp(lang, "c") == 0 || strcmp(lang, "posix") == 0)
+		strcmp(lang, "root") == 0 || strcmp(lang, "und") == 0)
 		found = true;
 
 	/* search for matching language within ICU */
@@ -2354,19 +2344,6 @@ icu_validate_locale(const char *loc_str)
 }
 
 /*
- * Determine the default ICU locale
- */
-static char *
-default_icu_locale(void)
-{
-#ifdef USE_ICU
-	return pg_strdup(uloc_getDefault());
-#else
-	pg_fatal("ICU is not supported in this build");
-#endif
-}
-
-/*
  * set up the locale variables
  *
  * assumes we have called setlocale(LC_ALL, "") -- see set_pglocale_pgservice
@@ -2376,7 +2353,7 @@ setlocales(void)
 {
 	char	   *canonname;
 
-	/* set empty lc_* values to locale config if set */
+	/* set empty lc_* and iculocale values to locale config if set */
 
 	if (locale)
 	{
@@ -2392,6 +2369,8 @@ setlocales(void)
 			lc_monetary = locale;
 		if (!lc_messages)
 			lc_messages = locale;
+		if (!icu_locale && locale_provider == COLLPROVIDER_ICU)
+			icu_locale = locale;
 	}
 
 	/*
@@ -2423,10 +2402,7 @@ setlocales(void)
 
 		/* acquire default locale from the environment, if not specified */
 		if (icu_locale == NULL)
-		{
-			icu_locale = default_icu_locale();
-			printf(_("Using default ICU locale \"%s\".\n"), icu_locale);
-		}
+			pg_fatal("ICU locale must be specified");
 
 		/* canonicalize to a language tag */
 		langtag = icu_language_tag(icu_locale);
@@ -2980,6 +2956,7 @@ void
 initialize_data_directory(void)
 {
 	PG_CMD_DECL;
+	PQExpBufferData cmd;
 	int			i;
 
 	setup_signals();
@@ -3043,12 +3020,11 @@ initialize_data_directory(void)
 	fputs(_("performing post-bootstrap initialization ... "), stdout);
 	fflush(stdout);
 
-	snprintf(cmd, sizeof(cmd),
-			 "\"%s\" %s %s template1 >%s",
-			 backend_exec, backend_options, extra_options,
-			 DEVNULL);
+	initPQExpBuffer(&cmd);
+	printfPQExpBuffer(&cmd, "\"%s\" %s %s template1 >%s",
+					  backend_exec, backend_options, extra_options, DEVNULL);
 
-	PG_CMD_OPEN;
+	PG_CMD_OPEN(cmd.data);
 
 	setup_auth(cmdfd);
 
@@ -3083,7 +3059,8 @@ initialize_data_directory(void)
 
 	make_postgres(cmdfd);
 
-	PG_CMD_CLOSE;
+	PG_CMD_CLOSE();
+	termPQExpBuffer(&cmd);
 
 	check_ok();
 }
@@ -3267,7 +3244,6 @@ main(int argc, char *argv[])
 				break;
 			case 8:
 				locale = "C";
-				locale_provider = COLLPROVIDER_LIBC;
 				break;
 			case 9:
 				pwfilename = pg_strdup(optarg);
