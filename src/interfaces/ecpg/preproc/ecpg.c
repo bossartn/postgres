@@ -115,7 +115,7 @@ add_preprocessor_define(char *define)
 
 #define ECPG_GETOPT_LONG_REGRESSION		1
 int
-main(int argc, char *argv[])
+main(int argc, char *const argv[])
 {
 	static struct option ecpg_options[] = {
 		{"regression", no_argument, NULL, ECPG_GETOPT_LONG_REGRESSION},

@@ -50,65 +50,47 @@
  * This implementation does not use optreset.  Instead, we guarantee that
  * it can be restarted on a new argv array after a previous call returned -1,
  * if the caller resets optind to 1 before the first call of the new series.
- * (Internally, this means we must be sure to reset "place" to EMSG and
- * nonopt_start to -1 before returning -1.)
- *
- * Note that this routine reorders the pointers in argv so that all non-options
- * will be at the end when -1 is returned.
+ * (Internally, this means we must be sure to reset "place" to EMSG before
+ * returning -1.)
  */
 int
-getopt_long(int argc, char *argv[], const char *optstring,
+getopt_long(int argc, char *const argv[],
+			const char *optstring,
 			const struct option *longopts, int *longindex)
 {
 	static char *place = EMSG;	/* option letter processing */
 	char	   *oli;			/* option letter list index */
-	static int	nonopt_start = -1;
 
 	if (!*place)
 	{							/* update scanning pointer */
 		if (optind >= argc)
 		{
 			place = EMSG;
-			nonopt_start = -1;
 			return -1;
 		}
 
-retry:
 		place = argv[optind];
 
-		if (place[0] != '-' || place[1] == '\0')
+		if (place[0] != '-')
 		{
-			/*
-			 * If only non-options remain, return -1.  Else, move the
-			 * non-option to the end and try again.
-			 */
-			if (optind == nonopt_start)
-			{
-				place = EMSG;
-				nonopt_start = -1;
-				return -1;
-			}
-
-			for (int i = optind; i < argc - 1; i++)
-				argv[i] = argv[i + 1];
-			argv[argc - 1] = place;
-
-			if (nonopt_start == -1)
-				nonopt_start = argc - 1;
-			else
-				nonopt_start--;
-
-			goto retry;
+			place = EMSG;
+			return -1;
 		}
 
 		place++;
+
+		if (!*place)
+		{
+			/* treat "-" as not being an option */
+			place = EMSG;
+			return -1;
+		}
 
 		if (place[0] == '-' && place[1] == '\0')
 		{
 			/* found "--", treat it as end of options */
 			++optind;
 			place = EMSG;
-			nonopt_start = -1;
 			return -1;
 		}
 
