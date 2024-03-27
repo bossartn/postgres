@@ -304,6 +304,21 @@ extern PGDLLIMPORT int (*pg_popcount32) (uint32 word);
 extern PGDLLIMPORT int (*pg_popcount64) (uint64 word);
 extern PGDLLIMPORT uint64 (*pg_popcount_optimized) (const char *buf, int bytes);
 
+/* Export pg_popcount_fast() for use in the AVX512 implementation. */
+extern uint64 pg_popcount_fast(const char *buf, int bytes);
+
+/*
+ * We can also try to use the AVX512 popcount instruction on some systems.
+ * The implementation of that is located in its own file because it may
+ * require special compiler flags that we don't want to apply to any other
+ * files.  Note that we only build this when TRY_POPCNT_FAST is set so that we
+ * can fall back to pg_popcount_fast() as needed.
+ */
+#ifdef USE_AVX512_POPCNT_WITH_RUNTIME_CHECK
+extern bool pg_popcount_avx512_available(void);
+extern uint64 pg_popcount_avx512(const char *buf, int bytes);
+#endif
+
 #else
 /* Use a portable implementation -- no need for a function pointer. */
 extern int	pg_popcount32(uint32 word);

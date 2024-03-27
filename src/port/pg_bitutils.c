@@ -114,7 +114,10 @@ static int	pg_popcount64_choose(uint64 word);
 static uint64 pg_popcount_choose(const char *buf, int bytes);
 static inline int pg_popcount32_fast(uint32 word);
 static inline int pg_popcount64_fast(uint64 word);
-static uint64 pg_popcount_fast(const char *buf, int bytes);
+
+#ifdef USE_AVX512_POPCNT_WITH_RUNTIME_CHECK
+static uint64 pg_popcount_fast_or_avx512(const char *buf, int bytes);
+#endif
 
 int			(*pg_popcount32) (uint32 word) = pg_popcount32_choose;
 int			(*pg_popcount64) (uint64 word) = pg_popcount64_choose;
@@ -156,6 +159,10 @@ choose_popcount_functions(void)
 		pg_popcount32 = pg_popcount32_fast;
 		pg_popcount64 = pg_popcount64_fast;
 		pg_popcount_optimized = pg_popcount_fast;
+#ifdef USE_AVX512_POPCNT_WITH_RUNTIME_CHECK
+		if (pg_popcount_avx512_available())
+			pg_popcount_optimized = pg_popcount_fast_or_avx512;
+#endif
 	}
 	else
 	{
@@ -224,7 +231,7 @@ __asm__ __volatile__(" popcntq %1,%0\n":"=q"(res):"rm"(word):"cc");
  * pg_popcount_fast
  *		Returns the number of 1-bits in buf
  */
-static uint64
+uint64
 pg_popcount_fast(const char *buf, int bytes)
 {
 	uint64		popcnt = 0;
@@ -265,6 +272,24 @@ pg_popcount_fast(const char *buf, int bytes)
 
 	return popcnt;
 }
+
+/*
+ * This is a wrapper function for pg_popcount_avx512() that uses
+ * pg_popcount_fast() when there aren't enough bytes to fit in an AVX-512
+ * register.  The compiler should be able to inline pg_popcount_fast() so that
+ * we only take on additional function call overhead when it's likely to be a
+ * better option.
+ */
+#ifdef USE_AVX512_POPCNT_WITH_RUNTIME_CHECK
+static uint64
+pg_popcount_fast_or_avx512(const char *buf, int bytes)
+{
+	if (bytes < 64)
+		return pg_popcount_fast(buf, bytes);
+	else
+		return pg_popcount_avx512(buf, bytes);
+}
+#endif							/* USE_AVX512_POPCNT_WITH_RUNTIME_CHECK */
 
 #endif							/* TRY_POPCNT_FAST */
 
