@@ -334,7 +334,7 @@ pg_popcount_masked_fast(const char *buf, int bytes, bits8 mask)
 	}
 #else
 	/* Process in 32-bit chunks if the buffer is aligned. */
-	uint32		maskv = ~0 / 0xFF * mask;
+	uint32		maskv = ~((uint32) 0) / 0xFF * mask;
 
 	if (buf == (const char *) TYPEALIGN(4, buf))
 	{
@@ -501,7 +501,7 @@ pg_popcount_masked_slow(const char *buf, int bytes, bits8 mask)
 	}
 #else
 	/* Process in 32-bit chunks if the buffer is aligned. */
-	uint32		maskv = ~0 / 0xFF * mask;
+	uint32		maskv = ~((uint32) 0) / 0xFF * mask;
 
 	if (buf == (const char *) TYPEALIGN(4, buf))
 	{
