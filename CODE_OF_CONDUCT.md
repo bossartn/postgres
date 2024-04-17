@@ -1,1 +1,1 @@
-For information about the PostgreSQL code of conduct, see <https://www.postgresql.org/about/policies/coc/>.
+The PostgreSQL code of conduct can be seen at <https://www.postgresql.org/about/policies/coc/>.
