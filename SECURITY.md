@@ -1,1 +1,1 @@
-For information about how to report a security issue, see <https://www.postgresql.org/support/security/>.
+For information about reporting security issues, see <https://www.postgresql.org/support/security/>.
