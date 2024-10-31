@@ -2158,7 +2158,9 @@ if host_cpu == 'x86' or host_cpu == 'x86_64'
   prog = '''
 #include <immintrin.h>
 
+#ifndef _MSC_VER
 __attribute__((target("xsave")))
+#endif
 int main(void)
 {
     return _xgetbv(0) & 0xe0;
