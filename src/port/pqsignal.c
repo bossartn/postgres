@@ -68,10 +68,16 @@
 #endif
 
 /* Check a couple of common signals to make sure PG_NSIG is accurate. */
+#ifdef SIGUSR2
 StaticAssertDecl(SIGUSR2 < PG_NSIG, "SIGUSR2 >= PG_NSIG");
+#endif
+#ifdef SIGHUP
 StaticAssertDecl(SIGHUP < PG_NSIG, "SIGHUP >= PG_NSIG");
+#endif
 StaticAssertDecl(SIGTERM < PG_NSIG, "SIGTERM >= PG_NSIG");
+#ifdef SIGALRM
 StaticAssertDecl(SIGALRM < PG_NSIG, "SIGALRM >= PG_NSIG");
+#endif
 
 static volatile pqsigfunc pqsignal_handlers[PG_NSIG];
 
