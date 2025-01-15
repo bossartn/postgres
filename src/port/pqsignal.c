@@ -148,13 +148,6 @@ pqsignal(int signo, pqsigfunc func)
 #else
 	/* Forward to Windows native signal system. */
 	if (signal(signo, func) == SIG_ERR)
-	{
-		if (signo == SIGABRT || signo == SIGSEGV || signo == SIGTERM ||
-			signo == SIGFPE || signo == SIGILL || signo == SIGINT)
-		{
-			pg_log_info("signo: %d", signo);
-			Assert(false);			/* probably indicates coding error */
-		}
-	}
+		Assert(false);			/* probably indicates coding error */
 #endif
 }
