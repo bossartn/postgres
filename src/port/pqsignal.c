@@ -55,6 +55,10 @@
 #include "miscadmin.h"
 #endif
 
+#if defined(WIN32) && defined(FRONTEND)
+#include "common/logging.h"
+#endif
+
 #ifdef PG_SIGNAL_COUNT			/* Windows */
 #define PG_NSIG (PG_SIGNAL_COUNT)
 #elif defined(NSIG)
@@ -144,6 +148,9 @@ pqsignal(int signo, pqsigfunc func)
 #else
 	/* Forward to Windows native signal system. */
 	if (signal(signo, func) == SIG_ERR)
+	{
+		pg_log_info("signo: %d");
 		Assert(false);			/* probably indicates coding error */
+	}
 #endif
 }
