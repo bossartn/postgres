@@ -40,6 +40,7 @@ pgkill(int pid, int sig)
 	}
 
 	/* special case for SIGKILL: just ask the system to terminate the target */
+#ifdef SIGKILL
 	if (sig == SIGKILL)
 	{
 		HANDLE		prochandle;
@@ -58,6 +59,7 @@ pgkill(int pid, int sig)
 		CloseHandle(prochandle);
 		return 0;
 	}
+#endif							/* SIGKILL */
 	snprintf(pipename, sizeof(pipename), "\\\\.\\pipe\\pgsignal_%u", pid);
 
 	if (CallNamedPipe(pipename, &sigData, 1, &sigRet, 1, &bytes, 1000))
