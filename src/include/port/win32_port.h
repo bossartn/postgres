@@ -162,7 +162,8 @@
 #define SIG_ERR ((pqsigfunc)-1)
 #define SIG_IGN ((pqsigfunc)1)
 
-/* Some extra signals */
+/* Some extra signals (except for the frontend, which lacks signal emulation) */
+#ifndef FRONTEND
 #define SIGHUP				1
 #define SIGQUIT				3
 #define SIGTRAP				5
@@ -177,6 +178,7 @@
 #define SIGWINCH			28
 #define SIGUSR1				30
 #define SIGUSR2				31
+#endif							/* FRONTEND */
 
 /* MinGW has gettimeofday(), but MSVC doesn't */
 #ifdef _MSC_VER
